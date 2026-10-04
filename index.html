@@ -10,11 +10,19 @@
             background-color: #0f172a;
             color: #f8fafc;
             margin: 0;
-            padding: 40px 20px;
+            padding: 20px;
             display: flex;
             justify-content: center;
             align-items: center;
-            height: 80vh;
+            min-height: 100vh;
+        }
+        /* Pembungkus agar kotak dan copyright tersusun rapi dari atas ke bawah di tengah */
+        .wrapper {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 100%;
+            max-width: 450px;
         }
         .container {
             text-align: center;
@@ -23,8 +31,8 @@
             padding: 40px;
             border-radius: 16px;
             box-shadow: 0 10px 25px rgba(0,0,0,0.3);
-            max-width: 450px;
             width: 100%;
+            box-sizing: border-box;
         }
         h1 {
             color: #ff6600;
@@ -62,33 +70,50 @@
             color: #fff;
             box-shadow: 0 4px 10px rgba(37, 244, 238, 0.2);
         }
+        /* Style untuk Copyright di bawah kotak persis */
+        .footer-copyright {
+            margin-top: 20px;
+            text-align: center;
+            color: #94a3b8;
+            font-size: 0.85rem;
+            width: 100%;
+        }
+        .footer-copyright a {
+            color: #00a2ff;
+            text-decoration: none;
+        }
+        .footer-copyright a:hover {
+            text-decoration: underline;
+        }
     </style>
 </head>
 <body>
 
-<div class="container">
-    <h1>Pilih Sistem Cek Order</h1>
-    <p>Silakan pilih platform toko yang ingin Anda cek:</p>
-    
-    <div class="btn-group">
-        <a href="shopee.html" class="btn">❤️ Buka Cek Order Shopee</a>
-        <a href="tiktok.html" class="btn btn-tiktok">💙 Buka Cek Order TikTok</a>
+<div class="wrapper">
+    <!-- Kotak Menu Utama -->
+    <div class="container">
+        <h1>Pilih Sistem Cek Order</h1>
+        <p>Silakan pilih platform toko yang ingin Anda cek:</p>
+        
+        <div class="btn-group">
+            <a href="shopee.html" class="btn">❤️ Buka Cek Order Shopee</a>
+            <a href="tiktok.html" class="btn btn-tiktok">💙 Buka Cek Order TikTok</a>
+        </div>
+    </div>
+
+    <!-- Copyright di dalam wrapper, posisinya dijamin tepat di bawah kotak -->
+    <div class="footer-copyright">
+         Copyright &copy; 2026 . <span>Sholehudien Moscovitz</span>.
     </div>
 </div>
 
-<!-- Footer Copyright ditaruh di LUAR container agar turun ke bawah -->
-<div class="footer-copyright">
-    Copyright &copy; 2026. <span>Sholehudien Moscovitz</span>.
-</div>
-
-<!-- (Opsional) Proteksi Password untuk Halaman Menu Utama -->
 <script>
-    let passwordBenar = "jtgUF6GyNPQp"; 
-    let passwordUser = prompt("Masukkan Password Dulu Banggg:");
+    let passwordBenar = "rahasia123"; 
+    let passwordUser = prompt("Masukkan Password Akses Utama:");
     
     if (passwordUser !== passwordBenar) {
-        alert("Password salah! wle kasian gak bisa masuk ckckck.");
-        document.body.innerHTML = "<h2 style='text-align:center; margin-top:50px; color:red;'>Akses Ditolak!! Gaboleh masuk sini yee :p </h2>";
+        alert("Password salah! Akses ditolak.");
+        document.body.innerHTML = "<h2 style='text-align:center; margin-top:100px; color:red;'>Akses Ditolak. Silakan tutup halaman ini.</h2>";
     }
 </script>
 
