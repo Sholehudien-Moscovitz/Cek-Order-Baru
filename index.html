@@ -1,0 +1,647 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cek Order Shopee Multi-Toko (1 Jalur Export)</title>
+    <!-- SheetJS CDN untuk membaca & menulis file Excel -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <style>
+        :root {
+            --primary: #ff6600;
+            --primary-soft: #ff8533;
+            --header-bg: #ffc000;
+            --secondary: #fe5722;
+            --bg: #0f172a;
+            --card-bg: #1e293b;
+            --text: #f8fafc;
+            --border: #334155;
+            --success: #10b981;
+            --warning: #f59e0b;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1250px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            text-align: center;
+            color: #fff;
+            margin-bottom: 25px;
+            font-weight: 700;
+        }
+
+        .upload-grid {
+            display: grid;
+            grid-template-columns: 1fr 2fr;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        @media (max-width: 900px) {
+            .upload-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .card {
+            background-color: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+
+        .card h3 {
+            margin-top: 0;
+            font-size: 1.1rem;
+            color: var(--primary);
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 8px;
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 6px;
+            font-size: 0.85rem;
+            color: #cbd5e1;
+            font-weight: 600;
+        }
+
+        .shopee-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+
+        @media (max-width: 600px) {
+            .shopee-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .shopee-item {
+            background-color: #0f172a;
+            padding: 10px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+        }
+
+        .shopee-item span {
+            display: block;
+            font-size: 0.9rem;
+            font-weight: bold;
+            color: var(--primary);
+            margin-bottom: 6px;
+        }
+
+        input[type="file"], input[type="text"] {
+            width: 100%;
+            padding: 8px;
+            margin-bottom: 10px;
+            background-color: #1e293b;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            color: #fff;
+            box-sizing: border-box;
+            font-size: 0.85rem;
+        }
+
+        .btn-container {
+            text-align: center;
+            margin: 20px 0;
+        }
+
+        button {
+            background: linear-gradient(135deg, var(--secondary), var(--primary));
+            color: #fff;
+            font-weight: bold;
+            border: none;
+            padding: 14px 35px;
+            font-size: 1rem;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            box-shadow: 0 4px 10px rgba(255, 102, 0, 0.3);
+        }
+
+        button:hover {
+            opacity: 0.95;
+            transform: translateY(-1px);
+        }
+
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .stat-card {
+            background-color: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 15px;
+            text-align: center;
+        }
+
+        .stat-card .number {
+            font-size: 1.8rem;
+            font-weight: bold;
+            margin-top: 5px;
+        }
+
+        .stat-total { color: var(--primary); }
+        .stat-sudah { color: var(--success); }
+        .stat-belum { color: var(--warning); }
+
+        .table-container {
+            max-height: 550px;
+            overflow-y: auto;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background-color: var(--card-bg);
+            text-align: left;
+            font-size: 0.88rem;
+        }
+
+        th, td {
+            padding: 12px 15px;
+            border-bottom: 1px solid var(--border);
+            white-space: nowrap;
+        }
+
+        /* Header Oranye Tebal */
+        th {
+            background-color: var(--header-bg);
+            position: sticky;
+            top: 0;
+            color: #000000;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+
+        tr:nth-child(even) {
+            background-color: rgba(255, 255, 255, 0.02);
+        }
+
+        .badge {
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.85rem;
+            font-weight: bold;
+            display: inline-block;
+            text-align: center;
+        }
+
+        .badge-sudah {
+            background-color: rgba(16, 185, 129, 0.2);
+            color: #10b981;
+            border: 1px solid #10b981;
+        }
+
+        .badge-belum {
+            background-color: rgba(245, 158, 11, 0.2);
+            color: #f59e0b;
+            border: 1px solid #f59e0b;
+        }
+
+        .badge-toko {
+            background-color: rgba(255, 102, 0, 0.15);
+            color: var(--primary-soft);
+            border: 1px solid rgba(255, 102, 0, 0.4);
+            font-weight: 600;
+        }
+
+        .footer-copyright {
+            text-align: center;
+            margin-top: 30px;
+            padding-top: 15px;
+            border-top: 1px solid var(--border);
+            font-size: 0.85rem;
+            color: #94a3b8;
+        }
+
+        .footer-copyright span {
+            color: #38bdf8;
+            font-weight: 600;
+        }
+
+        .hidden { display: none; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Cek Order Shopee Multi-Toko</h1>
+
+    <div class="upload-grid">
+        <!-- Input Data Lama -->
+        <div class="card">
+            <h3>1. Data Lama (Acuan)</h3>
+            <label>Upload File Excel Data Lama:</label>
+            <input type="file" id="fileLama" accept=".xlsx, .xls, .csv">
+            <label>Atau Paste Nomor Order (1 nomor per baris):</label>
+            <textarea id="textLama" rows="8" style="width:100%; background:#0f172a; border:1px solid var(--border); color:#fff; border-radius:6px; padding:8px; box-sizing:border-box; font-size:0.85rem;" placeholder="Contoh:&#10;231121ABC1234&#10;231121XYZ5678"></textarea>
+        </div>
+
+        <!-- Input Data Shopee Baru (6 Slot Toko) -->
+        <div class="card">
+            <h3>2. Data Shopee Baru (Upload Per Toko)</h3>
+            <p style="font-size:0.8rem; color:#94a3b8; margin-bottom: 12px;">
+                * Upload file Excel sesuai toko.
+            </p>
+            
+            <div class="shopee-grid">
+                <!-- 1. Shopee SPM -->
+                <div class="shopee-item">
+                    <span>Shopee SPM</span>
+                    <input type="file" id="fileSPM" accept=".xlsx, .xls, .csv">
+                </div>
+
+                <!-- 2. Shopee Heloskin -->
+                <div class="shopee-item">
+                    <span>Shopee Heloskin</span>
+                    <input type="file" id="fileHeloskin" accept=".xlsx, .xls, .csv">
+                </div>
+
+                <!-- 3. Shopee Mom&Baby -->
+                <div class="shopee-item">
+                    <span>Shopee Mom&Baby</span>
+                    <input type="file" id="fileMomBaby" accept=".xlsx, .xls, .csv">
+                </div>
+
+                <!-- 4. Shopee YOA -->
+                <div class="shopee-item">
+                    <span>Shopee YOA</span>
+                    <input type="file" id="fileYOA" accept=".xlsx, .xls, .csv">
+                </div>
+
+                <!-- 5. Shopee Fashion -->
+                <div class="shopee-item">
+                    <span>Shopee Fashion</span>
+                    <input type="file" id="fileFashion" accept=".xlsx, .xls, .csv">
+                </div>
+
+                <!-- 6. Shopee YOEL -->
+                <div class="shopee-item">
+                    <span>Shopee YOEL</span>
+                    <input type="file" id="fileYOEL" accept=".xlsx, .xls, .csv">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="btn-container">
+        <button onclick="prosesPengecekan()">PROSES CEK ORDER SHOPEE MULTI-TOKO</button>
+    </div>
+
+    <!-- Panel Hasil -->
+    <div id="resultPanel" class="hidden">
+        <div class="summary-grid">
+            <div class="stat-card">
+                <div>Total Order (Unik)</div>
+                <div class="number stat-total" id="statTotal">0</div>
+            </div>
+            <div class="stat-card">
+                <div>SUDAH INFO</div>
+                <div class="number stat-sudah" id="statSudah">0</div>
+            </div>
+            <div class="stat-card">
+                <div>BELUM INFO</div>
+                <div class="number stat-belum" id="statBelum">0</div>
+            </div>
+        </div>
+
+        <div style="margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center;">
+            <input type="text" id="searchInput" onkeyup="filterTabel()" placeholder="Cari No Order / Toko / Gudang / Status..." style="width: 350px; margin-bottom: 0;">
+            <button onclick="exportToExcel()" style="padding: 10px 20px; font-size: 0.9rem;">Export Hasil ke Excel (1 Jalur)</button>
+        </div>
+
+        <div class="table-container">
+            <table id="resultTable">
+                <thead>
+                    <tr>
+                        <th>NO ORDER</th>
+                        <th>NAMA GUDANG</th>		 <!-- Pindah ke urutan ke-2 -->
+			<th>ASAL FILE SHOPEE</th>        <!-- Pindah ke urutan ke-3 -->
+                        <th>WAKTU PESANAN DIBUAT</th>	 <!-- Pindah ke urutan ke-4 -->
+                        <th>HARUS DIKIRIM SEBELUM</th>	 <!-- Pindah ke urutan ke-5 -->
+                        <th>STATUS INFO</th>
+                    </tr>
+                </thead>
+                <tbody id="tableBody"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Footer Copyright -->
+    <div class="footer-copyright">
+        Copyright &copy; 2026 . <span>Sholehudien Moscovitz</span>.
+    </div>
+</div>
+
+<script>
+    let processedData = [];
+
+    // Cleaning string nomor order
+    function bersihkanOrder(val) {
+        if (val === null || val === undefined) return "";
+        let str = String(val).trim();
+        str = str.replace(/\s+/g, '');
+        if (str.startsWith("'")) {
+            str = str.substring(1);
+        }
+        return str;
+    }
+
+    // Helper Pembaca Excel (Mencari sheet dengan nama mengandung kata 'order')
+    function readExcel(file) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array', raw: false });
+                    
+                    // Cari sheet yang namanya memuat kata 'order' (case insensitive)
+                    let targetSheetName = workbook.SheetNames.find(name => 
+                        name.toLowerCase().includes('order')
+                    );
+                    
+                    // Jika tidak ditemukan sheet dengan nama 'order', gunakan sheet pertama
+                    if (!targetSheetName) {
+                        targetSheetName = workbook.SheetNames[0];
+                    }
+
+                    const worksheet = workbook.Sheets[targetSheetName];
+                    const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, raw: false });
+                    resolve(jsonData);
+                } catch (err) {
+                    reject(err);
+                }
+            };
+            reader.onerror = (error) => reject(error);
+            reader.readAsArrayBuffer(file);
+        });
+    }
+
+    async function prosesPengecekan() {
+        const fileLamaInput = document.getElementById('fileLama');
+        const textLamaInput = document.getElementById('textLama').value;
+
+        // Daftar 6 Toko beserta ID Input File
+        const tokoList = [
+            { id: 'fileSPM', namaToko: 'Shopee SPM' },
+            { id: 'fileHeloskin', namaToko: 'Shopee Heloskin' },
+            { id: 'fileMomBaby', namaToko: 'Shopee Mom&Baby' },
+            { id: 'fileYOA', namaToko: 'Shopee YOA' },
+            { id: 'fileFashion', namaToko: 'Shopee Fashion' },
+            { id: 'fileYOEL', namaToko: 'Shopee YOEL' }
+        ];
+
+        // Validasi minimal ada 1 file di-upload
+        let anyFileUploaded = tokoList.some(item => {
+            const input = document.getElementById(item.id);
+            return input && input.files.length > 0;
+        });
+
+        if (!anyFileUploaded) {
+            alert('Harap upload setidaknya 1 File Excel Shopee Baru!');
+            return;
+        }
+
+        const dictLama = new Set();
+
+        // 1. Baca Data Lama (Textarea)
+        if (textLamaInput.trim() !== "") {
+            const lines = textLamaInput.split('\n');
+            lines.forEach(line => {
+                const cleaned = bersihkanOrder(line);
+                if (cleaned) dictLama.add(cleaned);
+            });
+        }
+
+        // 2. Baca Data Lama (Excel)
+        if (fileLamaInput.files.length > 0) {
+            try {
+                const dataLama = await readExcel(fileLamaInput.files[0]);
+                dataLama.forEach(row => {
+                    const noOrder = bersihkanOrder(row[0]);
+                    if (noOrder) dictLama.add(noOrder);
+                });
+            } catch (e) {
+                console.error("Gagal membaca file data lama:", e);
+            }
+        }
+
+        if (dictLama.size === 0) {
+            if (!confirm("Data Lama acuan masih kosong. Melanjutkan akan membuat semua order berstatus BELUM INFO. Lanjutkan?")) {
+                return;
+            }
+        }
+
+        const dictOrderShopee = new Set();
+        processedData = [];
+
+        let totalOrder = 0;
+        let sudahInfo = 0;
+        let belumInfo = 0;
+
+        // 3. Gabungkan semua data dari ke-6 slot upload ke dalam 1 array (1 Jalur)
+        for (const toko of tokoList) {
+            const inputElement = document.getElementById(toko.id);
+            if (inputElement && inputElement.files.length > 0) {
+                try {
+                    const dataBaru = await readExcel(inputElement.files[0]);
+                    
+                    if (dataBaru && dataBaru.length >= 2) {
+                        const headers = dataBaru[0].map(h => String(h || '').trim().toLowerCase());
+                        
+                        let idxNoOrder = 0;
+                        let idxWaktuKirim = 6;
+                        let idxWaktuDibuat = 8;
+                        let idxGudang = -1;
+
+                        headers.forEach((h, idx) => {
+                            if (h.includes('gudang') || h.includes('cabang') || h.includes('nama gudang')) {
+                                idxGudang = idx;
+                            }
+                            if (h.includes('no. pesanan') || h.includes('no pesanan') || h.includes('no order')) {
+                                idxNoOrder = idx;
+                            }
+                            if (h.includes('harus dikirimkan sebelum') || h.includes('dikirim sebelum')) {
+                                idxWaktuKirim = idx;
+                            }
+                            if (h.includes('waktu pesanan dibuat') || h.includes('pesanan dibuat')) {
+                                idxWaktuDibuat = idx;
+                            }
+                        });
+
+                        if (idxGudang === -1) {
+                            idxGudang = dataBaru[0].length > 32 ? 32 : 27;
+                        }
+
+                        for (let i = 1; i < dataBaru.length; i++) {
+                            const row = dataBaru[i];
+                            const noOrder = bersihkanOrder(row[idxNoOrder]);
+
+                            if (noOrder && !dictOrderShopee.has(noOrder)) {
+                                dictOrderShopee.add(noOrder);
+
+                                let waktuKirim = row[idxWaktuKirim] ? String(row[idxWaktuKirim]).trim() : "-";
+                                let waktuDibuat = row[idxWaktuDibuat] ? String(row[idxWaktuDibuat]).trim() : "-";
+                                let namaGudang = row[idxGudang] !== undefined && row[idxGudang] !== null ? String(row[idxGudang]).trim() : "";
+
+                                // Jika nama gudang kosong, bernilai "0", atau bernilai "-", ubah menjadi "YOS STREAMVERSE"
+                                if (!namaGudang || namaGudang === "0" || namaGudang === "-") {
+                                    namaGudang = "YOS STREAMVERSE";
+                                }
+
+                                const isSudahInfo = dictLama.has(noOrder);
+                                const status = isSudahInfo ? "SUDAH INFO" : "BELUM INFO";
+
+                                if (isSudahInfo) sudahInfo++;
+                                else belumInfo++;
+
+                                totalOrder++;
+
+                                // Masukkan ke dalam array gabungan
+                                processedData.push({
+                                    noOrder: noOrder,
+				    namaGudang: namaGudang,	// Urutan ke-2
+                                    asalToko: toko.namaToko,	// Urutan ke-3
+                                    waktuDibuat: waktuDibuat,	// Urutan ke-4
+                                    waktuKirim: waktuKirim,	// Urutan ke-5
+                                    status: status
+                                });
+                            }
+                        }
+                    }
+                } catch (e) {
+                    console.error(`Gagal membaca file dari toko ${toko.namaToko}:`, e);
+                }
+            }
+        }
+
+        // 4. Update Ringkasan Dashboard
+        document.getElementById('statTotal').innerText = totalOrder.toLocaleString();
+        document.getElementById('statSudah').innerText = sudahInfo.toLocaleString();
+        document.getElementById('statBelum').innerText = belumInfo.toLocaleString();
+
+        renderTable(processedData);
+        document.getElementById('resultPanel').classList.remove('hidden');
+    }
+
+    // Tampilkan Data ke Tabel
+    function renderTable(data) {
+        const tbody = document.getElementById('tableBody');
+        tbody.innerHTML = '';
+
+        data.forEach(item => {
+            const tr = document.createElement('tr');
+            const badgeClass = item.status === 'SUDAH INFO' ? 'badge-sudah' : 'badge-belum';
+
+            tr.innerHTML = `
+                <td style="font-family: monospace; font-weight: 600;">${item.noOrder}</td>
+                <td>${item.namaGudang}</td>
+                <td><span class="badge badge-toko">${item.asalToko}</span></td>
+                <td>${item.waktuDibuat}</td>
+                <td>${item.waktuKirim}</td>
+                <td><span class="badge ${badgeClass}">${item.status}</span></td>
+            `;
+            tbody.appendChild(tr);
+        });
+    }
+
+    // Pencarian Filter Tabel
+    function filterTabel() {
+        const query = document.getElementById('searchInput').value.toLowerCase();
+        const filtered = processedData.filter(item => 
+            item.noOrder.toLowerCase().includes(query) ||
+            item.namaGudang.toLowerCase().includes(query) ||
+            item.asalToko.toLowerCase().includes(query) ||
+            item.waktuDibuat.toLowerCase().includes(query) ||
+            item.waktuKirim.toLowerCase().includes(query) ||
+            item.status.toLowerCase().includes(query)
+        );
+        renderTable(filtered);
+    }
+
+    // Export 1 Jalur ke Excel
+    function exportToExcel() {
+        if (!processedData.length) return;
+        
+        // Header Excel
+        const wsData = [["NO ORDER", "NAMA GUDANG", "ASAL FILE SHOPEE" , "WAKTU PESANAN DIBUAT", "HARUS DIKIRIM SEBELUM" , "STATUS INFO"]];
+        
+        const colWidths = [18, 18, 22, 22, 18, 14]; 
+
+        processedData.forEach(item => {
+            wsData.push([
+                item.noOrder, 
+                item.namaGudang, 
+                item.asalToko,
+                item.waktuDibuat, 
+                item.waktuKirim, 
+                item.status
+            ]);
+
+            // Hitung lebar kolom dinamis
+            colWidths[0] = Math.max(colWidths[0], item.noOrder.length + 3);
+            colWidths[1] = Math.max(colWidths[1], item.namaGudang.length + 3);
+            colWidths[2] = Math.max(colWidths[2], item.asalToko.length + 3);
+            colWidths[3] = Math.max(colWidths[3], item.waktuDibuat.length + 3);
+            colWidths[4] = Math.max(colWidths[4], item.waktuKirim.length + 3);
+            colWidths[5] = Math.max(colWidths[5], item.status.length + 3);
+        });
+
+        const ws = XLSX.utils.aoa_to_sheet(wsData);
+
+        // Atur Lebar Kolom
+        ws['!cols'] = colWidths.map(w => ({ wch: w }));
+
+        // Style Header Oranye
+        const range = XLSX.utils.decode_range(ws['!ref']);
+        for (let C = range.s.c; C <= range.e.c; ++C) {
+            const headerCell = XLSX.utils.encode_cell({ r: 0, c: C });
+            if (ws[headerCell]) {
+                ws[headerCell].s = {
+                    fill: { fgColor: { rgb: "FFC000" } },
+                    font: { bold: true, color: { rgb: "000000" } },
+                    alignment: { horizontal: "center", vertical: "center" }
+                };
+            }
+        }
+
+        // Format No Order menjadi Text
+        for (let R = range.s.r; R <= range.e.r; ++R) {
+            const cell_ref = XLSX.utils.encode_cell({ c: 0, r: R });
+            if (ws[cell_ref]) ws[cell_ref].z = '@';
+        }
+
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "CEK ORDER GABUNGAN");
+        XLSX.writeFile(wb, "Hasil_Cek_Order_Shopee_Gabungan.xlsx");
+    }
+</script>
+
+</body>
+</html>
