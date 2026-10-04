@@ -643,5 +643,15 @@
     }
 </script>
 
+<script>
+    // Ganti "rahasia123" dengan PIN atau password yang Anda inginkan
+    let passwordBenar = "rahasia123"; 
+    let passwordUser = prompt("Masukkan Password Akses Cek Order:");
+    
+    if (passwordUser !== passwordBenar) {
+        alert("Password salah! Akses ditolak.");
+        document.body.innerHTML = "<h2 style='text-align:center; margin-top:50px; color:red;'>Akses Ditolak. Silakan tutup halaman ini.</h2>";
+    }
+</script>
 </body>
 </html>
