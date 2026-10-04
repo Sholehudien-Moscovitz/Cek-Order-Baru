@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cek Order TikTok Baru</title>
+    <!-- SheetJS CDN untuk membaca & membuat file Excel -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <style>
+        :root {
+            --primary: #00f2fe;
+            --secondary: #4facfe;
+            --bg: #0f172a;
+            --card-bg: #1e293b;
+            --text: #f8fafc;
+            --border: #334155;
+            --success: #10b981;
+            --warning: #f59e0b;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1100px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            text-align: center;
+            color: #fff;
+            margin-bottom: 25px;
+            font-weight: 700;
+        }
+
+        .upload-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .card {
+            background-color: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+
+        .card h3 {
+            margin-top: 0;
+            font-size: 1.1rem;
+            color: var(--secondary);
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-size: 0.9rem;
+            color: #cbd5e1;
+        }
+
+        input[type="file"], input[type="text"] {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 15px;
+            background-color: #0f172a;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            color: #fff;
+            box-sizing: border-box;
+        }
+
+        .btn-container {
+            text-align: center;
+            margin: 20px 0;
+        }
+
+        button {
+            background: linear-gradient(135deg, var(--secondary), var(--primary));
+            color: #000;
+            font-weight: bold;
+            border: none;
+            padding: 12px 30px;
+            font-size: 1rem;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        button:hover {
+            opacity: 0.9;
+            transform: translateY(-1px);
+        }
+
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .stat-card {
+            background-color: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 15px;
+            text-align: center;
+        }
+
+        .stat-card .number {
+            font-size: 1.8rem;
+            font-weight: bold;
+            margin-top: 5px;
+        }
+
+        .stat-total { color: var(--secondary); }
+        .stat-sudah { color: var(--success); }
+        .stat-belum { color: var(--warning); }
+
+        .table-container {
+            max-height: 500px;
+            overflow-y: auto;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background-color: var(--card-bg);
+            text-align: left;
+        }
+
+        th, td {
+            padding: 12px 15px;
+            border-bottom: 1px solid var(--border);
+            white-space: nowrap;
+        }
+
+        th {
+            background-color: #0f172a;
+            position: sticky;
+            top: 0;
+            color: #94a3b8;
+            font-weight: 600;
+        }
+
+        .badge {
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.85rem;
+            font-weight: bold;
+            display: inline-block;
+        }
+
+        .badge-sudah {
+            background-color: rgba(16, 185, 129, 0.2);
+            color: #10b981;
+            border: 1px solid #10b981;
+        }
+
+        .badge-belum {
+            background-color: rgba(245, 158, 11, 0.2);
+            color: #f59e0b;
+            border: 1px solid #f59e0b;
+        }
+
+	.footer-copyright {
+            text-align: center;
+            margin-top: 30px;
+            padding-top: 15px;
+            border-top: 1px solid var(--border);
+            font-size: 0.85rem;
+            color: #94a3b8;
+        }
+
+        .footer-copyright span {
+            color: #38bdf8;
+            font-weight: 600;
+        }
+
+        .hidden { display: none; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Cek Order TikTok Baru</h1>
+
+    <div class="upload-grid">
+        <!-- Input Data Lama -->
+        <div class="card">
+            <h3>1. Data Lama (Acuan)</h3>
+            <label>Upload File Excel Data Lama:</label>
+            <input type="file" id="fileLama" accept=".xlsx, .xls, .csv">
+            <label>Atau Paste Nomor Order (1 nomor per baris):</label>
+            <textarea id="textLama" rows="4" style="width:100%; background:#0f172a; border:1px solid var(--border); color:#fff; border-radius:6px; padding:8px; box-sizing:border-box;" placeholder="Contoh:&#10;578123456789&#10;578123456790"></textarea>
+        </div>
+
+        <!-- Input Data TikTok Baru -->
+        <div class="card">
+            <h3>2. Data TikTok Baru</h3>
+            <label>Upload File Excel TikTok Baru:</label>
+            <input type="file" id="fileBaru" accept=".xlsx, .xls, .csv">
+            <p style="font-size:0.8rem; color:#94a3b8; margin-top:5px;">
+                *"Kita semua sedang HBD, Hari-Hari Butuh Duit".
+            </p>
+        </div>
+    </div>
+
+    <div class="btn-container">
+        <button onclick="prosesPengecekan()">PROSES CEK ORDER</button>
+    </div>
+
+    <!-- Panel Hasil -->
+    <div id="resultPanel" class="hidden">
+        <div class="summary-grid">
+            <div class="stat-card">
+                <div>Total Order (Unik)</div>
+                <div class="number stat-total" id="statTotal">0</div>
+            </div>
+            <div class="stat-card">
+                <div>SUDAH INFO</div>
+                <div class="number stat-sudah" id="statSudah">0</div>
+            </div>
+            <div class="stat-card">
+                <div>BELUM INFO</div>
+                <div class="number stat-belum" id="statBelum">0</div>
+            </div>
+        </div>
+
+        <div style="margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center;">
+            <input type="text" id="searchInput" onkeyup="filterTabel()" placeholder="Cari No Order / Cabang / Status..." style="width: 300px; margin-bottom: 0;">
+            <button onclick="exportToExcel()" style="padding: 8px 16px; font-size: 0.9rem;">Export Hasil ke Excel</button>
+        </div>
+
+        <div class="table-container">
+            <table id="resultTable">
+                <thead>
+                    <tr>
+                        <th>NO ORDER</th>
+                        <th>NAMA GUDANG / CABANG</th>
+                        <th>WAKTU PESANAN DIBUAT</th>
+                        <th>STATUS INFO</th>
+                    </tr>
+                </thead>
+                <tbody id="tableBody"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Footer Copyright -->
+    <div class="footer-copyright">
+         Copyright &copy; 2026 . <span>Sholehudien Moscovitz</span>.
+    </div>
+</div>
+
+<script>
+    let processedData = [];
+
+    // Fungsi pembersihan string nomor order
+    function bersihkanOrder(val) {
+        if (val === null || val === undefined) return "";
+        let str = String(val).trim();
+        str = str.replace(/\s+/g, ''); // Hapus semua spasi
+        if (str.startsWith("'")) {
+            str = str.substring(1);
+        }
+        return str;
+    }
+
+    async function prosesPengecekan() {
+        const fileLamaInput = document.getElementById('fileLama');
+        const textLamaInput = document.getElementById('textLama').value;
+        const fileBaruInput = document.getElementById('fileBaru');
+
+        if (!fileBaruInput.files.length) {
+            alert('Harap upload File TikTok Baru!');
+            return;
+        }
+
+        const dictLama = new Set();
+
+        // 1. Baca Data Lama dari Textarea
+        if (textLamaInput.trim() !== "") {
+            const lines = textLamaInput.split('\n');
+            lines.forEach(line => {
+                const cleaned = bersihkanOrder(line);
+                if (cleaned) dictLama.add(cleaned);
+            });
+        }
+
+        // 2. Baca Data Lama dari File Excel (jika ada)
+        if (fileLamaInput.files.length > 0) {
+            const dataLama = await readExcel(fileLamaInput.files[0]);
+            dataLama.forEach(row => {
+                const noOrder = bersihkanOrder(row[0]); // Kolom A
+                if (noOrder) dictLama.add(noOrder);
+            });
+        }
+
+        if (dictLama.size === 0) {
+            if (!confirm("Data Lama acuan masih kosong. Apakah Anda yakin ingin melanjutkan? (Semua status akan menjadi BELUM INFO)")) {
+                return;
+            }
+        }
+
+        // 3. Baca Data TikTok Baru
+        const dataBaru = await readExcel(fileBaruInput.files[0]);
+        const dictOrderTikTok = new Set();
+        processedData = [];
+
+        let totalOrder = 0;
+        let sudahInfo = 0;
+        let belumInfo = 0;
+
+        // Iterasi mulai dari baris 3 (Indeks 2)
+        for (let i = 2; i < dataBaru.length; i++) {
+            const row = dataBaru[i];
+	    if (!row) continue;
+
+            const noOrder = bersihkanOrder(row[0]); // Kolom A
+
+            if (noOrder && !dictOrderTikTok.has(noOrder)) {
+                dictOrderTikTok.add(noOrder);
+
+                // Kolom AD = Indeks 29 (Created Time / Waktu Dibuat)
+                let waktuDibuat = row[29] ? String(row[29]).trim() : "-";
+
+                // Kolom AM = Indeks 38 (Nama Cabang / Warehouse)
+                let namaCabang = row[38] ? String(row[38]).trim() : "";
+                if (!namaCabang) namaCabang = "(TANPA CABANG)";
+
+                const isSudahInfo = dictLama.has(noOrder);
+                const status = isSudahInfo ? "SUDAH INFO" : "BELUM INFO";
+
+                if (isSudahInfo) sudahInfo++;
+                else belumInfo++;
+
+                totalOrder++;
+
+                processedData.push({
+                    noOrder: noOrder,
+                    namaCabang: namaCabang,
+                    waktuDibuat: waktuDibuat,
+                    status: status
+                });
+            }
+        }
+
+        // 4. Update UI Dashboard & Tabel
+        document.getElementById('statTotal').innerText = totalOrder.toLocaleString();
+        document.getElementById('statSudah').innerText = sudahInfo.toLocaleString();
+        document.getElementById('statBelum').innerText = belumInfo.toLocaleString();
+
+        renderTable(processedData);
+        document.getElementById('resultPanel').classList.remove('hidden');
+    }
+
+    // Helper membaca file Excel menggunakan FileReader & SheetJS
+    function readExcel(file) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const data = new Uint8Array(e.target.result);
+                const workbook = XLSX.read(data, { type: 'array', raw: false });
+                const firstSheetName = workbook.SheetNames[0];
+                const worksheet = workbook.Sheets[firstSheetName];
+                const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, raw: false });
+                resolve(jsonData);
+            };
+            reader.onerror = (error) => reject(error);
+            reader.readAsArrayBuffer(file);
+        });
+    }
+
+    function renderTable(data) {
+        const tbody = document.getElementById('tableBody');
+        tbody.innerHTML = '';
+
+        data.forEach(item => {
+            const tr = document.createElement('tr');
+            const badgeClass = item.status === 'SUDAH INFO' ? 'badge-sudah' : 'badge-belum';
+
+            tr.innerHTML = `
+                <td style="font-family: monospace;">${item.noOrder}</td>
+                <td>${item.namaCabang}</td>
+                <td>${item.waktuDibuat}</td>
+                <td><span class="badge ${badgeClass}">${item.status}</span></td>
+            `;
+            tbody.appendChild(tr);
+        });
+    }
+
+    function filterTabel() {
+        const query = document.getElementById('searchInput').value.toLowerCase();
+        const filtered = processedData.filter(item => 
+            item.noOrder.toLowerCase().includes(query) ||
+            item.namaCabang.toLowerCase().includes(query) ||
+            item.waktuDibuat.toLowerCase().includes(query) ||
+            item.status.toLowerCase().includes(query)
+        );
+        renderTable(filtered);
+    }
+
+    function exportToExcel() {
+        if (!processedData.length) return;
+        
+        const headers = ["NO ORDER", "NAMA GUDANG", "WAKTU PESANAN DIBUAT", "STATUS INFO"];
+        const wsData = [headers];
+
+        processedData.forEach(item => {
+            wsData.push([item.noOrder, item.namaCabang, item.waktuDibuat, item.status]);
+        });
+
+        const ws = XLSX.utils.aoa_to_sheet(wsData);
+
+        // 1. Lebar Kolom Otomatis (Agar tidak berdempetan)
+        const colWidths = [
+            { wch: 25 }, // NO ORDER
+            { wch: 24 }, // NAMA GUDANG
+            { wch: 28 }, // WAKTU PESANAN DIBUAT
+            { wch: 18 }  // STATUS INFO
+        ];
+        ws['!cols'] = colWidths;
+
+        // 2. Formatting Header (Kuning Pekat #FFC000 + Teks Tebal)
+        const range = XLSX.utils.decode_range(ws['!ref']);
+        for (let C = range.s.c; C <= range.e.c; ++C) {
+            const cell_address = XLSX.utils.encode_cell({ r: 0, c: C });
+            if (!ws[cell_address]) continue;
+
+            ws[cell_address].s = {
+                fill: {
+                    fgColor: { rgb: "FFC000" } // Warna Kuning Sesuai Gambar
+                },
+                font: {
+                    bold: true,
+                    color: { rgb: "000000" },
+                    name: "Calibri",
+                    sz: 11
+                },
+                alignment: {
+                    horizontal: "center",
+                    vertical: "center"
+                }
+            };
+        }
+
+        // 3. Pastikan Kolom NO ORDER sebagai Text (mencegah format scientific)
+        for (let R = 1; R <= range.e.r; ++R) {
+            const cell_address = XLSX.utils.encode_cell({ r: R, c: 0 });
+            if (ws[cell_address]) {
+                ws[cell_address].z = '@';
+            }
+        }
+
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "CEK ORDER TIKTOK");
+        XLSX.writeFile(wb, "Hasil_Cek_Order_TikTok.xlsx");
+    }
+</script>
+
+<script>
+    let passwordBenar = "jtgUF6GyNPQp"; 
+    let passwordUser = prompt("Masukkan Password Dulu Banggg:");
+    
+    if (passwordUser !== passwordBenar) {
+        alert("Password salah! wle kasian gak bisa masuk ckckck.");
+        document.body.innerHTML = "<h2 style='text-align:center; margin-top:50px; color:red;'>Akses Ditolak. Gaboleh masuk sini yee .</h2>";
+    }
+</script>
+</body>
+</html>
