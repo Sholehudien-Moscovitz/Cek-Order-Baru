@@ -236,9 +236,28 @@
             </div>
         </div>
 
-        <div style="margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center;">
-            <input type="text" id="searchInput" onkeyup="filterTabel()" placeholder="Cari No Order / Cabang / Status..." style="width: 300px; margin-bottom: 0;">
-            <button onclick="exportToExcel()" style="padding: 8px 16px; font-size: 0.9rem;">Export Hasil ke Excel</button>
+        <div style="margin-bottom: 10px; display: flex; flex-wrap: wrap; gap: 10px; justify-content: space-between; align-items: center;">
+            <div style="display: flex; flex-wrap: wrap; gap: 8px; align-items: center; flex: 1; min-width: 260px;">
+                <input type="text" id="searchInput" onkeyup="applyFilters()" placeholder="Cari No Order / Cabang / Status..." style="width: 300px; margin-bottom: 0;">
+                <select id="statusFilter" onchange="applyFilters()" style="padding: 8px; background-color: #0f172a; border: 1px solid var(--border); border-radius: 6px; color: #fff;">
+                    <option value="all">Semua Status</option>
+                    <option value="SUDAH INFO">SUDAH INFO</option>
+                    <option value="BELUM INFO">BELUM INFO</option>
+                </select>
+                <select id="sortSelect" onchange="applyFilters()" style="padding: 8px; background-color: #0f172a; border: 1px solid var(--border); border-radius: 6px; color: #fff;">
+                    <option value="order-asc">No Order A-Z</option>
+                    <option value="order-desc">No Order Z-A</option>
+                    <option value="status-desc">Status: Sudah Info dahulu</option>
+                    <option value="status-asc">Status: Belum Info dahulu</option>
+                    <option value="time-newest">Waktu Pesan Baru</option>
+                    <option value="time-oldest">Waktu Pesan Lama</option>
+                </select>
+            </div>
+            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                <button onclick="copyVisibleResults()" style="padding: 8px 16px; font-size: 0.9rem; background: linear-gradient(135deg, #4facfe, #00f2fe);">Copy Hasil</button>
+                <button onclick="resetFilters()" style="padding: 8px 16px; font-size: 0.9rem; background: #475569; color: #fff;">Reset</button>
+                <button onclick="exportToExcel()" style="padding: 8px 16px; font-size: 0.9rem;">Export Hasil ke Excel</button>
+            </div>
         </div>
 
         <div class="table-container">
@@ -385,6 +404,17 @@
         const tbody = document.getElementById('tableBody');
         tbody.innerHTML = '';
 
+        if (!data.length) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="4" style="text-align:center; color:#94a3b8; padding: 25px;">
+                        Tidak ada data yang cocok dengan filter saat ini.
+                    </td>
+                </tr>
+            `;
+            return;
+        }
+
         data.forEach(item => {
             const tr = document.createElement('tr');
             const badgeClass = item.status === 'SUDAH INFO' ? 'badge-sudah' : 'badge-belum';
@@ -399,71 +429,207 @@
         });
     }
 
-    function filterTabel() {
+    function getFilteredData() {
         const query = document.getElementById('searchInput').value.toLowerCase();
-        const filtered = processedData.filter(item => 
-            item.noOrder.toLowerCase().includes(query) ||
-            item.namaCabang.toLowerCase().includes(query) ||
-            item.waktuDibuat.toLowerCase().includes(query) ||
-            item.status.toLowerCase().includes(query)
-        );
-        renderTable(filtered);
+        const statusFilter = document.getElementById('statusFilter').value;
+        const sortSelect = document.getElementById('sortSelect').value;
+
+        const filtered = processedData.filter(item => {
+            const matchesQuery = !query ||
+                item.noOrder.toLowerCase().includes(query) ||
+                item.namaCabang.toLowerCase().includes(query) ||
+                item.waktuDibuat.toLowerCase().includes(query) ||
+                item.status.toLowerCase().includes(query);
+            const matchesStatus = statusFilter === 'all' || item.status === statusFilter;
+            return matchesQuery && matchesStatus;
+        });
+
+        filtered.sort((a, b) => {
+            const orderComparison = a.noOrder.localeCompare(
+                b.noOrder,
+                undefined,
+                { numeric: true, sensitivity: 'base' }
+            );
+            switch (sortSelect) {
+                case 'order-desc':
+                    return -orderComparison;
+                case 'status-desc':
+                    return (a.status === 'SUDAH INFO' ? 0 : 1) -
+                        (b.status === 'SUDAH INFO' ? 0 : 1) || orderComparison;
+                case 'status-asc':
+                    return (a.status === 'BELUM INFO' ? 0 : 1) -
+                        (b.status === 'BELUM INFO' ? 0 : 1) || orderComparison;
+                case 'time-newest':
+                case 'time-oldest': {
+                    const dateA = parseTikTokDate(a.waktuDibuat);
+                    const dateB = parseTikTokDate(b.waktuDibuat);
+                    if (!dateA && !dateB) return orderComparison;
+                    if (!dateA) return 1;
+                    if (!dateB) return -1;
+                    const timeComparison = dateA.getTime() - dateB.getTime();
+                    return (sortSelect === 'time-newest' ? -timeComparison : timeComparison) || orderComparison;
+                }
+                case 'order-asc':
+                default:
+                    return orderComparison;
+            }
+        });
+
+        return filtered;
     }
 
-    function exportToExcel() {
-        if (!processedData.length) return;
-        
-        const headers = ["NO ORDER", "NAMA GUDANG", "WAKTU PESANAN DIBUAT", "STATUS INFO"];
-        const wsData = [headers];
+    function applyFilters() {
+        renderTable(getFilteredData());
+    }
 
-        processedData.forEach(item => {
+    function filterTabel() {
+        applyFilters();
+    }
+
+    function resetFilters() {
+        document.getElementById('searchInput').value = '';
+        document.getElementById('statusFilter').value = 'all';
+        document.getElementById('sortSelect').value = 'order-asc';
+        applyFilters();
+    }
+
+    async function copyVisibleResults() {
+        const rows = getFilteredData();
+        if (!rows.length) {
+            alert('Tidak ada data untuk disalin.');
+            return;
+        }
+
+        const tsv = [
+            ['NO ORDER', 'NAMA GUDANG / CABANG', 'WAKTU PESANAN DIBUAT', 'STATUS INFO'],
+            ...rows.map(item => [item.noOrder, item.namaCabang, item.waktuDibuat, item.status])
+        ].map(row => row.join('\t')).join('\n');
+
+        try {
+            await navigator.clipboard.writeText(tsv);
+            alert('Hasil terlihat berhasil disalin ke clipboard.');
+        } catch (error) {
+            console.error('Gagal menyalin hasil:', error);
+            alert('Clipboard tidak tersedia di browser ini.');
+        }
+    }
+
+    function sanitizeSheetName(name) {
+        const cleaned = String(name || '(TANPA CABANG)')
+            .trim()
+            .replace(/[\\/*?:\[\]]/g, '')
+            .replace(/\s+/g, ' ')
+            .slice(0, 31);
+        return cleaned || '(TANPA CABANG)';
+    }
+
+    function parseTikTokDate(value) {
+        const text = String(value || '').trim();
+        if (!text || text === '-') return null;
+
+        let match = text.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})(?:[ T,]+(\d{1,2}):(\d{2})(?::(\d{2}))?)?/);
+        if (match) {
+            const [, year, month, day, hour = '0', minute = '0', second = '0'] = match;
+            return new Date(Number(year), Number(month) - 1, Number(day), Number(hour), Number(minute), Number(second));
+        }
+
+        match = text.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})(?:[ T,]+(\d{1,2}):(\d{2})(?::(\d{2}))?)?/);
+        if (match) {
+            const [, day, month, year, hour = '0', minute = '0', second = '0'] = match;
+            return new Date(Number(year), Number(month) - 1, Number(day), Number(hour), Number(minute), Number(second));
+        }
+
+        const parsed = new Date(text);
+        return Number.isNaN(parsed.getTime()) ? null : parsed;
+    }
+
+    function formatTikTokTemplateDate(value) {
+        const parsed = parseTikTokDate(value);
+        if (!parsed) return String(value || '-').trim() || '-';
+        const day = String(parsed.getDate()).padStart(2, '0');
+        const month = String(parsed.getMonth() + 1).padStart(2, '0');
+        return `${day}/${month}/${parsed.getFullYear()}`;
+    }
+
+    function formatTikTokTimeTag(value) {
+        const parsed = parseTikTokDate(value);
+        if (parsed) return parsed.getHours() < 12 ? '<12:00' : '>12:00';
+
+        const match = String(value || '').match(/(?:^|\s)(\d{1,2}):(\d{2})/);
+        return match && Number(match[1]) < 12 ? '<12:00' : '>12:00';
+    }
+
+    function buildTikTokSheet(rows, withTemplate = false) {
+        const wsData = [["NO ORDER", "NAMA GUDANG", "WAKTU PESANAN DIBUAT", "STATUS INFO"]];
+        rows.forEach(item => {
             wsData.push([item.noOrder, item.namaCabang, item.waktuDibuat, item.status]);
         });
 
+        if (withTemplate) {
+            const templateGroups = new Map();
+            rows.forEach(item => {
+                const dateText = formatTikTokTemplateDate(item.waktuDibuat);
+                const timeTag = formatTikTokTimeTag(item.waktuDibuat);
+                const groupKey = `${dateText}|${timeTag}`;
+                if (!templateGroups.has(groupKey)) {
+                    templateGroups.set(groupKey, { dateText, timeTag, orders: [] });
+                }
+                templateGroups.get(groupKey).orders.push(item.noOrder);
+            });
+
+            templateGroups.forEach(group => {
+                wsData.push(['']);
+                wsData.push(['Info pak/bu, order tiktok baru berikut :']);
+                wsData.push([`* Order masuk : ${group.dateText} ${group.timeTag}`]);
+                group.orders.forEach(order => wsData.push([order]));
+                wsData.push(['terima kasih.']);
+                wsData.push(['']);
+            });
+        }
+
         const ws = XLSX.utils.aoa_to_sheet(wsData);
-
-        // 1. Lebar Kolom Otomatis (Agar tidak berdempetan)
-        const colWidths = [
-            { wch: 25 }, // NO ORDER
-            { wch: 24 }, // NAMA GUDANG
-            { wch: 28 }, // WAKTU PESANAN DIBUAT
-            { wch: 18 }  // STATUS INFO
+        ws['!cols'] = [
+            { wch: 25 },
+            { wch: 24 },
+            { wch: 28 },
+            { wch: 18 }
         ];
-        ws['!cols'] = colWidths;
 
-        // 2. Formatting Header (Kuning Pekat #FFC000 + Teks Tebal)
         const range = XLSX.utils.decode_range(ws['!ref']);
         for (let C = range.s.c; C <= range.e.c; ++C) {
-            const cell_address = XLSX.utils.encode_cell({ r: 0, c: C });
-            if (!ws[cell_address]) continue;
+            const cellAddress = XLSX.utils.encode_cell({ r: 0, c: C });
+            if (!ws[cellAddress]) continue;
 
-            ws[cell_address].s = {
-                fill: {
-                    fgColor: { rgb: "FFC000" } // Warna Kuning Sesuai Gambar
-                },
-                font: {
-                    bold: true,
-                    color: { rgb: "000000" },
-                    name: "Calibri",
-                    sz: 11
-                },
-                alignment: {
-                    horizontal: "center",
-                    vertical: "center"
-                }
+            ws[cellAddress].s = {
+                fill: { fgColor: { rgb: "FFC000" } },
+                font: { bold: true, color: { rgb: "000000" }, name: "Calibri", sz: 11 },
+                alignment: { horizontal: "center", vertical: "center" }
             };
         }
 
-        // 3. Pastikan Kolom NO ORDER sebagai Text (mencegah format scientific)
         for (let R = 1; R <= range.e.r; ++R) {
-            const cell_address = XLSX.utils.encode_cell({ r: R, c: 0 });
-            if (ws[cell_address]) {
-                ws[cell_address].z = '@';
-            }
+            const cellAddress = XLSX.utils.encode_cell({ r: R, c: 0 });
+            if (ws[cellAddress]) ws[cellAddress].z = '@';
         }
+        return ws;
+    }
+
+    function exportToExcel() {
+        const rows = getFilteredData();
+        if (!rows.length) return;
+
+        const groupedRows = new Map();
+        rows.forEach(item => {
+            const sheetName = sanitizeSheetName(item.namaCabang);
+            if (!groupedRows.has(sheetName)) groupedRows.set(sheetName, []);
+            groupedRows.get(sheetName).push(item);
+        });
 
         const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, "CEK ORDER TIKTOK");
+        XLSX.utils.book_append_sheet(wb, buildTikTokSheet(rows), "CEK ORDER TIKTOK");
+        groupedRows.forEach((branchRows, sheetName) => {
+            XLSX.utils.book_append_sheet(wb, buildTikTokSheet(branchRows, true), sheetName);
+        });
         XLSX.writeFile(wb, "Hasil_Cek_Order_TikTok.xlsx");
     }
 </script>
