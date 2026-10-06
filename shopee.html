@@ -359,7 +359,7 @@
                 <thead>
                     <tr>
                         <th>NO ORDER</th>
-                        <th>NAMA GUDANG</th>		 <!-- Pindah ke urutan ke-2 -->
+                        <th>NAMA GUDANG</th>		     <!-- Pindah ke urutan ke-2 -->
 						<th>ASAL FILE SHOPEE</th>        <!-- Pindah ke urutan ke-3 -->
                         <th>WAKTU PESANAN DIBUAT</th>	 <!-- Pindah ke urutan ke-4 -->
                         <th>HARUS DIKIRIM SEBELUM</th>	 <!-- Pindah ke urutan ke-5 -->
@@ -738,7 +738,7 @@
                 wsData.push(['']);
                 wsData.push(['Info pak/bu, order shopee baru berikut :']);
                 wsData.push([`* Order masuk : ${group.orderDateText} ${group.timeTag}`]);
-                wsData.push([`* Batas Kirim : ${group.kirimText}`]);
+                wsData.push([`* Batas Kirim : ${group.kirimText} 23:59`]);
                 group.orders.forEach(order => wsData.push([order]));
                 wsData.push(['terima kasih.']);
                 wsData.push(['']);
