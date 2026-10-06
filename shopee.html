@@ -663,6 +663,115 @@
         return cleaned || 'UNKNOWN';
     }
 
+    function formatTemplateDate(value) {
+        if (!value || value === '-') return '-';
+        const text = String(value).trim();
+        const asDate = new Date(text.replace(' ', 'T'));
+        if (Number.isNaN(asDate.getTime())) {
+            return text;
+        }
+        const day = String(asDate.getDate()).padStart(2, '0');
+        const month = String(asDate.getMonth() + 1).padStart(2, '0');
+        const year = asDate.getFullYear();
+        return `${day}/${month}/${year}`;
+    }
+
+    function formatTemplateTimeTag(value) {
+        if (!value || value === '-') return '>12:00';
+        const text = String(value).trim();
+        const asDate = new Date(text.replace(' ', 'T'));
+        if (!Number.isNaN(asDate.getTime())) {
+            return asDate.getHours() < 12 ? '<12:00' : '>12:00';
+        }
+
+        const timeMatch = text.match(/(\d{1,2})(?::|\.|,)?(\d{2})/);
+        if (timeMatch) {
+            const hour = Number(timeMatch[1]);
+            return hour < 12 ? '<12:00' : '>12:00';
+        }
+
+        return '>12:00';
+    }
+
+    function buildExcelSheet(rows, sheetName, withTemplate = false) {
+        const header = ['NO ORDER', 'NAMA GUDANG', 'ASAL FILE SHOPEE', 'WAKTU PESANAN DIBUAT', 'HARUS DIKIRIM SEBELUM', 'STATUS INFO'];
+        const wsData = [header];
+        const colWidths = [18, 18, 22, 22, 18, 14];
+
+        rows.forEach(item => {
+            wsData.push([
+                item.noOrder,
+                item.namaGudang,
+                item.asalToko,
+                item.waktuDibuat,
+                item.waktuKirim,
+                item.status
+            ]);
+
+            colWidths[0] = Math.max(colWidths[0], String(item.noOrder).length + 3);
+            colWidths[1] = Math.max(colWidths[1], String(item.namaGudang).length + 3);
+            colWidths[2] = Math.max(colWidths[2], String(item.asalToko).length + 3);
+            colWidths[3] = Math.max(colWidths[3], String(item.waktuDibuat).length + 3);
+            colWidths[4] = Math.max(colWidths[4], String(item.waktuKirim).length + 3);
+            colWidths[5] = Math.max(colWidths[5], String(item.status).length + 3);
+        });
+
+        if (withTemplate) {
+            const templateGroups = new Map();
+            rows.forEach(item => {
+                const orderDateText = formatTemplateDate(item.waktuDibuat);
+                const timeTag = formatTemplateTimeTag(item.waktuDibuat);
+                const kirimText = formatTemplateDate(item.waktuKirim);
+                const groupKey = `${orderDateText}|${timeTag}|${kirimText}`;
+                if (!templateGroups.has(groupKey)) {
+                    templateGroups.set(groupKey, {
+                        orderDateText,
+                        timeTag,
+                        kirimText,
+                        orders: []
+                    });
+                }
+                templateGroups.get(groupKey).orders.push(item.noOrder);
+            });
+
+            templateGroups.forEach(group => {
+                wsData.push(['']);
+                wsData.push(['Info pak/bu, order shopee baru berikut :']);
+                wsData.push([`* Order masuk : ${group.orderDateText} ${group.timeTag}`]);
+                wsData.push([`* Batas Kirim : ${group.kirimText}`]);
+                group.orders.forEach(order => wsData.push([order]));
+                wsData.push(['terima kasih.']);
+                wsData.push(['']);
+            });
+        }
+
+        const ws = XLSX.utils.aoa_to_sheet(wsData);
+        ws['!cols'] = colWidths.map(w => ({ wch: w }));
+
+        const range = XLSX.utils.decode_range(ws['!ref']);
+        for (let C = range.s.c; C <= range.e.c; ++C) {
+            const headerCell = XLSX.utils.encode_cell({ r: 0, c: C });
+            if (ws[headerCell]) {
+                ws[headerCell].s = {
+                    fill: { fgColor: { rgb: 'FFC000' } },
+                    font: { bold: true, color: { rgb: '000000' } },
+                    alignment: { horizontal: 'center', vertical: 'center' }
+                };
+            }
+        }
+
+        for (let R = range.s.r; R <= range.e.r; ++R) {
+            const cellRef = XLSX.utils.encode_cell({ c: 0, r: R });
+            if (ws[cellRef]) ws[cellRef].z = '@';
+        }
+
+        if (sheetName) {
+            ws.__sheetName = sheetName;
+        }
+
+        return ws;
+    }
+
     function exportToExcel() {
         const rows = getFilteredData();
         if (!rows.length) return;
@@ -677,50 +786,11 @@
         });
 
         const wb = XLSX.utils.book_new();
-        const header = ['NO ORDER', 'NAMA GUDANG', 'ASAL FILE SHOPEE', 'WAKTU PESANAN DIBUAT', 'HARUS DIKIRIM SEBELUM', 'STATUS INFO'];
+        const summarySheet = buildExcelSheet(rows, 'REKAP SEMUA ORDER', false);
+        XLSX.utils.book_append_sheet(wb, summarySheet, 'REKAP SEMUA ORDER');
 
         Object.entries(groupedRows).forEach(([sheetName, items]) => {
-            const wsData = [header];
-            const colWidths = [18, 18, 22, 22, 18, 14];
-
-            items.forEach(item => {
-                wsData.push([
-                    item.noOrder,
-                    item.namaGudang,
-                    item.asalToko,
-                    item.waktuDibuat,
-                    item.waktuKirim,
-                    item.status
-                ]);
-
-                colWidths[0] = Math.max(colWidths[0], String(item.noOrder).length + 3);
-                colWidths[1] = Math.max(colWidths[1], String(item.namaGudang).length + 3);
-                colWidths[2] = Math.max(colWidths[2], String(item.asalToko).length + 3);
-                colWidths[3] = Math.max(colWidths[3], String(item.waktuDibuat).length + 3);
-                colWidths[4] = Math.max(colWidths[4], String(item.waktuKirim).length + 3);
-                colWidths[5] = Math.max(colWidths[5], String(item.status).length + 3);
-            });
-
-            const ws = XLSX.utils.aoa_to_sheet(wsData);
-            ws['!cols'] = colWidths.map(w => ({ wch: w }));
-
-            const range = XLSX.utils.decode_range(ws['!ref']);
-            for (let C = range.s.c; C <= range.e.c; ++C) {
-                const headerCell = XLSX.utils.encode_cell({ r: 0, c: C });
-                if (ws[headerCell]) {
-                    ws[headerCell].s = {
-                        fill: { fgColor: { rgb: 'FFC000' } },
-                        font: { bold: true, color: { rgb: '000000' } },
-                        alignment: { horizontal: 'center', vertical: 'center' }
-                    };
-                }
-            }
-
-            for (let R = range.s.r; R <= range.e.r; ++R) {
-                const cellRef = XLSX.utils.encode_cell({ c: 0, r: R });
-                if (ws[cellRef]) ws[cellRef].z = '@';
-            }
-
+            const ws = buildExcelSheet(items, sheetName, true);
             XLSX.utils.book_append_sheet(wb, ws, sheetName);
         });
 
