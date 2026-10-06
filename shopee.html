@@ -330,9 +330,28 @@
             </div>
         </div>
 
-        <div style="margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center;">
-            <input type="text" id="searchInput" onkeyup="filterTabel()" placeholder="Cari No Order / Toko / Gudang / Status..." style="width: 350px; margin-bottom: 0;">
-            <button onclick="exportToExcel()" style="padding: 10px 20px; font-size: 0.9rem;">Export Hasil ke Excel (1 Jalur)</button>
+        <div class="toolbar" style="margin-bottom: 15px; display: flex; flex-wrap: wrap; gap: 10px; justify-content: space-between; align-items: center;">
+            <div style="display: flex; flex-wrap: wrap; gap: 10px; align-items: center; flex: 1; min-width: 260px;">
+                <input type="text" id="searchInput" onkeyup="applyFilters()" placeholder="Cari No Order / Toko / Gudang / Status..." style="width: min(350px, 100%); margin-bottom: 0;">
+                <select id="statusFilter" onchange="applyFilters()" style="width: 170px; margin-bottom: 0; background:#0f172a; color:white; border:1px solid var(--border); border-radius:6px; padding:8px;">
+                    <option value="all">Semua Status</option>
+                    <option value="SUDAH INFO">SUDAH INFO</option>
+                    <option value="BELUM INFO">BELUM INFO</option>
+                </select>
+                <select id="sortSelect" onchange="applyFilters()" style="width: 180px; margin-bottom: 0; background:#0f172a; color:white; border:1px solid var(--border); border-radius:6px; padding:8px;">
+                    <option value="order-asc">No Order A-Z</option>
+                    <option value="order-desc">No Order Z-A</option>
+                    <option value="status-desc">Status: Sudah Info dahulu</option>
+                    <option value="status-asc">Status: Belum Info dahulu</option>
+                    <option value="time-newest">Waktu Pesan Baru</option>
+                    <option value="time-oldest">Waktu Pesan Lama</option>
+                </select>
+            </div>
+            <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                <button id="copyBtn" onclick="copyVisibleResults()" style="padding: 10px 18px; font-size: 0.9rem; background: linear-gradient(135deg, #0ea5e9, #2563eb); box-shadow: 0 4px 10px rgba(37, 99, 235, 0.2);">Copy Hasil</button>
+                <button id="resetBtn" onclick="resetFilters()" style="padding: 10px 18px; font-size: 0.9rem; background: linear-gradient(135deg, #64748b, #475569); box-shadow: 0 4px 10px rgba(100, 116, 139, 0.2);">Reset</button>
+                <button onclick="exportToExcel()" style="padding: 10px 20px; font-size: 0.9rem;">Export Excel</button>
+            </div>
         </div>
 
         <div class="table-container">
@@ -361,7 +380,6 @@
 <script>
     let processedData = [];
 
-    // Cleaning string nomor order
     function bersihkanOrder(val) {
         if (val === null || val === undefined) return "";
         let str = String(val).trim();
@@ -372,7 +390,10 @@
         return str;
     }
 
-    // Helper Pembaca Excel (Mencari sheet dengan nama mengandung kata 'order')
+    function normalizeText(value) {
+        return String(value || '').trim().toLowerCase();
+    }
+
     function readExcel(file) {
         return new Promise((resolve, reject) => {
             const reader = new FileReader();
@@ -380,17 +401,14 @@
                 try {
                     const data = new Uint8Array(e.target.result);
                     const workbook = XLSX.read(data, { type: 'array', raw: false });
-                    
-                    // Cari sheet yang namanya memuat kata 'order' (case insensitive)
-                    let targetSheetName = workbook.SheetNames.find(name => 
-                        name.toLowerCase().includes('order')
+                    let targetSheetName = workbook.SheetNames.find(name =>
+                        normalizeText(name).includes('order')
                     );
-                    
-                    // Jika tidak ditemukan sheet dengan nama 'order', gunakan sheet pertama
                     if (!targetSheetName) {
-                        targetSheetName = workbook.SheetNames[0];
+                        targetSheetName = workbook.SheetNames.find(name =>
+                            normalizeText(name).includes('sheet') || normalizeText(name).includes('data')
+                        ) || workbook.SheetNames[0];
                     }
-
                     const worksheet = workbook.Sheets[targetSheetName];
                     const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, raw: false });
                     resolve(jsonData);
@@ -403,157 +421,58 @@
         });
     }
 
-    async function prosesPengecekan() {
-        const fileLamaInput = document.getElementById('fileLama');
-        const textLamaInput = document.getElementById('textLama').value;
+    function getFilteredData() {
+        const query = document.getElementById('searchInput').value.toLowerCase();
+        const statusFilter = document.getElementById('statusFilter').value;
+        const sortSelect = document.getElementById('sortSelect').value;
 
-        // Daftar 6 Toko beserta ID Input File
-        const tokoList = [
-            { id: 'fileSPM', namaToko: 'Shopee SPM' },
-            { id: 'fileHeloskin', namaToko: 'Shopee Heloskin' },
-            { id: 'fileMomBaby', namaToko: 'Shopee Mom&Baby' },
-            { id: 'fileYOA', namaToko: 'Shopee YOA' },
-            { id: 'fileFashion', namaToko: 'Shopee Fashion' },
-            { id: 'fileYOEL', namaToko: 'Shopee YOEL' }
-        ];
-
-        // Validasi minimal ada 1 file di-upload
-        let anyFileUploaded = tokoList.some(item => {
-            const input = document.getElementById(item.id);
-            return input && input.files.length > 0;
+        let filtered = processedData.filter(item => {
+            const matchesQuery = !query ||
+                item.noOrder.toLowerCase().includes(query) ||
+                item.namaGudang.toLowerCase().includes(query) ||
+                item.asalToko.toLowerCase().includes(query) ||
+                item.waktuDibuat.toLowerCase().includes(query) ||
+                item.waktuKirim.toLowerCase().includes(query) ||
+                item.status.toLowerCase().includes(query);
+            const matchesStatus = statusFilter === 'all' || item.status === statusFilter;
+            return matchesQuery && matchesStatus;
         });
 
-        if (!anyFileUploaded) {
-            alert('Harap upload setidaknya 1 File Excel Shopee Baru!');
-            return;
-        }
-
-        const dictLama = new Set();
-
-        // 1. Baca Data Lama (Textarea)
-        if (textLamaInput.trim() !== "") {
-            const lines = textLamaInput.split('\n');
-            lines.forEach(line => {
-                const cleaned = bersihkanOrder(line);
-                if (cleaned) dictLama.add(cleaned);
-            });
-        }
-
-        // 2. Baca Data Lama (Excel)
-        if (fileLamaInput.files.length > 0) {
-            try {
-                const dataLama = await readExcel(fileLamaInput.files[0]);
-                dataLama.forEach(row => {
-                    const noOrder = bersihkanOrder(row[0]);
-                    if (noOrder) dictLama.add(noOrder);
-                });
-            } catch (e) {
-                console.error("Gagal membaca file data lama:", e);
+        filtered.sort((a, b) => {
+            switch (sortSelect) {
+                case 'order-desc':
+                    return b.noOrder.localeCompare(a.noOrder, undefined, { numeric: true, sensitivity: 'base' });
+                case 'status-desc':
+                    return (a.status === 'SUDAH INFO' ? 1 : 0) - (b.status === 'SUDAH INFO' ? 1 : 0) || a.noOrder.localeCompare(b.noOrder);
+                case 'status-asc':
+                    return (a.status === 'BELUM INFO' ? 1 : 0) - (b.status === 'BELUM INFO' ? 1 : 0) || a.noOrder.localeCompare(b.noOrder);
+                case 'time-newest':
+                    return new Date(b.waktuDibuat || 0) - new Date(a.waktuDibuat || 0);
+                case 'time-oldest':
+                    return new Date(a.waktuDibuat || 0) - new Date(b.waktuDibuat || 0);
+                case 'order-asc':
+                default:
+                    return a.noOrder.localeCompare(b.noOrder, undefined, { numeric: true, sensitivity: 'base' });
             }
-        }
+        });
 
-        if (dictLama.size === 0) {
-            if (!confirm("Data Lama acuan masih kosong. Melanjutkan akan membuat semua order berstatus BELUM INFO. Lanjutkan?")) {
-                return;
-            }
-        }
-
-        const dictOrderShopee = new Set();
-        processedData = [];
-
-        let totalOrder = 0;
-        let sudahInfo = 0;
-        let belumInfo = 0;
-
-        // 3. Gabungkan semua data dari ke-6 slot upload ke dalam 1 array (1 Jalur)
-        for (const toko of tokoList) {
-            const inputElement = document.getElementById(toko.id);
-            if (inputElement && inputElement.files.length > 0) {
-                try {
-                    const dataBaru = await readExcel(inputElement.files[0]);
-                    
-                    if (dataBaru && dataBaru.length >= 2) {
-                        const headers = dataBaru[0].map(h => String(h || '').trim().toLowerCase());
-                        
-                        let idxNoOrder = 0;
-                        let idxWaktuKirim = 6;
-                        let idxWaktuDibuat = 8;
-                        let idxGudang = -1;
-
-                        headers.forEach((h, idx) => {
-                            if (h.includes('gudang') || h.includes('cabang') || h.includes('nama gudang')) {
-                                idxGudang = idx;
-                            }
-                            if (h.includes('no. pesanan') || h.includes('no pesanan') || h.includes('no order')) {
-                                idxNoOrder = idx;
-                            }
-                            if (h.includes('harus dikirimkan sebelum') || h.includes('dikirim sebelum')) {
-                                idxWaktuKirim = idx;
-                            }
-                            if (h.includes('waktu pesanan dibuat') || h.includes('pesanan dibuat')) {
-                                idxWaktuDibuat = idx;
-                            }
-                        });
-
-                        if (idxGudang === -1) {
-                            idxGudang = dataBaru[0].length > 32 ? 32 : 27;
-                        }
-
-                        for (let i = 1; i < dataBaru.length; i++) {
-                            const row = dataBaru[i];
-                            const noOrder = bersihkanOrder(row[idxNoOrder]);
-
-                            if (noOrder && !dictOrderShopee.has(noOrder)) {
-                                dictOrderShopee.add(noOrder);
-
-                                let waktuKirim = row[idxWaktuKirim] ? String(row[idxWaktuKirim]).trim() : "-";
-                                let waktuDibuat = row[idxWaktuDibuat] ? String(row[idxWaktuDibuat]).trim() : "-";
-                                let namaGudang = row[idxGudang] !== undefined && row[idxGudang] !== null ? String(row[idxGudang]).trim() : "";
-
-                                // Jika nama gudang kosong, bernilai "0", atau bernilai "-", ubah menjadi "YOS STREAMVERSE"
-                                if (!namaGudang || namaGudang === "0" || namaGudang === "-") {
-                                    namaGudang = "YOS STREAMVERSE";
-                                }
-
-                                const isSudahInfo = dictLama.has(noOrder);
-                                const status = isSudahInfo ? "SUDAH INFO" : "BELUM INFO";
-
-                                if (isSudahInfo) sudahInfo++;
-                                else belumInfo++;
-
-                                totalOrder++;
-
-                                // Masukkan ke dalam array gabungan
-                                processedData.push({
-                                    noOrder: noOrder,
-				    namaGudang: namaGudang,	// Urutan ke-2
-                                    asalToko: toko.namaToko,	// Urutan ke-3
-                                    waktuDibuat: waktuDibuat,	// Urutan ke-4
-                                    waktuKirim: waktuKirim,	// Urutan ke-5
-                                    status: status
-                                });
-                            }
-                        }
-                    }
-                } catch (e) {
-                    console.error(`Gagal membaca file dari toko ${toko.namaToko}:`, e);
-                }
-            }
-        }
-
-        // 4. Update Ringkasan Dashboard
-        document.getElementById('statTotal').innerText = totalOrder.toLocaleString();
-        document.getElementById('statSudah').innerText = sudahInfo.toLocaleString();
-        document.getElementById('statBelum').innerText = belumInfo.toLocaleString();
-
-        renderTable(processedData);
-        document.getElementById('resultPanel').classList.remove('hidden');
+        return filtered;
     }
 
-    // Tampilkan Data ke Tabel
     function renderTable(data) {
         const tbody = document.getElementById('tableBody');
         tbody.innerHTML = '';
+
+        if (!data.length) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="6" style="text-align:center; color:#94a3b8; padding: 25px;">
+                        Tidak ada data yang cocok dengan filter saat ini.
+                    </td>
+                </tr>
+            `;
+            return;
+        }
 
         data.forEach(item => {
             const tr = document.createElement('tr');
@@ -571,75 +490,241 @@
         });
     }
 
-    // Pencarian Filter Tabel
-    function filterTabel() {
-        const query = document.getElementById('searchInput').value.toLowerCase();
-        const filtered = processedData.filter(item => 
-            item.noOrder.toLowerCase().includes(query) ||
-            item.namaGudang.toLowerCase().includes(query) ||
-            item.asalToko.toLowerCase().includes(query) ||
-            item.waktuDibuat.toLowerCase().includes(query) ||
-            item.waktuKirim.toLowerCase().includes(query) ||
-            item.status.toLowerCase().includes(query)
-        );
-        renderTable(filtered);
+    function applyFilters() {
+        renderTable(getFilteredData());
     }
 
-    // Export 1 Jalur ke Excel
-    function exportToExcel() {
-        if (!processedData.length) return;
-        
-        // Header Excel
-        const wsData = [["NO ORDER", "NAMA GUDANG", "ASAL FILE SHOPEE" , "WAKTU PESANAN DIBUAT", "HARUS DIKIRIM SEBELUM" , "STATUS INFO"]];
-        
-        const colWidths = [18, 18, 22, 22, 18, 14]; 
+    function resetFilters() {
+        document.getElementById('searchInput').value = '';
+        document.getElementById('statusFilter').value = 'all';
+        document.getElementById('sortSelect').value = 'order-asc';
+        renderTable(getFilteredData());
+    }
 
-        processedData.forEach(item => {
-            wsData.push([
-                item.noOrder, 
-                item.namaGudang, 
-                item.asalToko,
-                item.waktuDibuat, 
-                item.waktuKirim, 
-                item.status
-            ]);
+    async function prosesPengecekan() {
+        const fileLamaInput = document.getElementById('fileLama');
+        const textLamaInput = document.getElementById('textLama').value;
 
-            // Hitung lebar kolom dinamis
-            colWidths[0] = Math.max(colWidths[0], item.noOrder.length + 3);
-            colWidths[1] = Math.max(colWidths[1], item.namaGudang.length + 3);
-            colWidths[2] = Math.max(colWidths[2], item.asalToko.length + 3);
-            colWidths[3] = Math.max(colWidths[3], item.waktuDibuat.length + 3);
-            colWidths[4] = Math.max(colWidths[4], item.waktuKirim.length + 3);
-            colWidths[5] = Math.max(colWidths[5], item.status.length + 3);
+        const tokoList = [
+            { id: 'fileSPM', namaToko: 'Shopee SPM' },
+            { id: 'fileHeloskin', namaToko: 'Shopee Heloskin' },
+            { id: 'fileMomBaby', namaToko: 'Shopee Mom&Baby' },
+            { id: 'fileYOA', namaToko: 'Shopee YOA' },
+            { id: 'fileFashion', namaToko: 'Shopee Fashion' },
+            { id: 'fileYOEL', namaToko: 'Shopee YOEL' }
+        ];
+
+        let anyFileUploaded = tokoList.some(item => {
+            const input = document.getElementById(item.id);
+            return input && input.files.length > 0;
         });
 
-        const ws = XLSX.utils.aoa_to_sheet(wsData);
+        if (!anyFileUploaded) {
+            alert('Harap upload setidaknya 1 File Excel Shopee Baru!');
+            return;
+        }
 
-        // Atur Lebar Kolom
-        ws['!cols'] = colWidths.map(w => ({ wch: w }));
+        const dictLama = new Set();
 
-        // Style Header Oranye
-        const range = XLSX.utils.decode_range(ws['!ref']);
-        for (let C = range.s.c; C <= range.e.c; ++C) {
-            const headerCell = XLSX.utils.encode_cell({ r: 0, c: C });
-            if (ws[headerCell]) {
-                ws[headerCell].s = {
-                    fill: { fgColor: { rgb: "FFC000" } },
-                    font: { bold: true, color: { rgb: "000000" } },
-                    alignment: { horizontal: "center", vertical: "center" }
-                };
+        if (textLamaInput.trim() !== "") {
+            const lines = textLamaInput.split('\n');
+            lines.forEach(line => {
+                const cleaned = bersihkanOrder(line);
+                if (cleaned) dictLama.add(cleaned);
+            });
+        }
+
+        if (fileLamaInput.files.length > 0) {
+            try {
+                const dataLama = await readExcel(fileLamaInput.files[0]);
+                dataLama.forEach(row => {
+                    const noOrder = bersihkanOrder(row[0]);
+                    if (noOrder) dictLama.add(noOrder);
+                });
+            } catch (e) {
+                console.error('Gagal membaca file data lama:', e);
             }
         }
 
-        // Format No Order menjadi Text
-        for (let R = range.s.r; R <= range.e.r; ++R) {
-            const cell_ref = XLSX.utils.encode_cell({ c: 0, r: R });
-            if (ws[cell_ref]) ws[cell_ref].z = '@';
+        if (dictLama.size === 0) {
+            if (!confirm('Data Lama acuan masih kosong. Melanjutkan akan membuat semua order berstatus BELUM INFO. Lanjutkan?')) {
+                return;
+            }
         }
 
+        const dictOrderShopee = new Set();
+        processedData = [];
+
+        let totalOrder = 0;
+        let sudahInfo = 0;
+        let belumInfo = 0;
+
+        for (const toko of tokoList) {
+            const inputElement = document.getElementById(toko.id);
+            if (inputElement && inputElement.files.length > 0) {
+                try {
+                    const dataBaru = await readExcel(inputElement.files[0]);
+
+                    if (dataBaru && dataBaru.length >= 2) {
+                        const headers = dataBaru[0].map(h => String(h || '').trim().toLowerCase());
+
+                        let idxNoOrder = 0;
+                        let idxWaktuKirim = 6;
+                        let idxWaktuDibuat = 8;
+                        let idxGudang = -1;
+
+                        headers.forEach((h, idx) => {
+                            if (h.includes('gudang') || h.includes('cabang') || h.includes('nama gudang')) {
+                                idxGudang = idx;
+                            }
+                            if (h.includes('no. pesanan') || h.includes('no pesanan') || h.includes('no order') || h.includes('nomor pesanan')) {
+                                idxNoOrder = idx;
+                            }
+                            if (h.includes('harus dikirimkan sebelum') || h.includes('dikirim sebelum') || h.includes('deadline') || h.includes('waktu kirim')) {
+                                idxWaktuKirim = idx;
+                            }
+                            if (h.includes('waktu pesanan dibuat') || h.includes('pesanan dibuat') || h.includes('tanggal pesan') || h.includes('created at')) {
+                                idxWaktuDibuat = idx;
+                            }
+                        });
+
+                        if (idxGudang === -1) {
+                            idxGudang = dataBaru[0].length > 32 ? 32 : 27;
+                        }
+
+                        for (let i = 1; i < dataBaru.length; i++) {
+                            const row = dataBaru[i];
+                            const noOrder = bersihkanOrder(row[idxNoOrder]);
+
+                            if (noOrder && !dictOrderShopee.has(noOrder)) {
+                                dictOrderShopee.add(noOrder);
+
+                                let waktuKirim = row[idxWaktuKirim] ? String(row[idxWaktuKirim]).trim() : '-';
+                                let waktuDibuat = row[idxWaktuDibuat] ? String(row[idxWaktuDibuat]).trim() : '-';
+                                let namaGudang = row[idxGudang] !== undefined && row[idxGudang] !== null ? String(row[idxGudang]).trim() : '';
+
+                                if (!namaGudang || namaGudang === '0' || namaGudang === '-') {
+                                    namaGudang = 'YOS STREAMVERSE';
+                                }
+
+                                const isSudahInfo = dictLama.has(noOrder);
+                                const status = isSudahInfo ? 'SUDAH INFO' : 'BELUM INFO';
+
+                                if (isSudahInfo) sudahInfo++;
+                                else belumInfo++;
+
+                                totalOrder++;
+
+                                processedData.push({
+                                    noOrder: noOrder,
+                                    namaGudang: namaGudang,
+                                    asalToko: toko.namaToko,
+                                    waktuDibuat: waktuDibuat,
+                                    waktuKirim: waktuKirim,
+                                    status: status
+                                });
+                            }
+                        }
+                    }
+                } catch (e) {
+                    console.error(`Gagal membaca file dari toko ${toko.namaToko}:`, e);
+                }
+            }
+        }
+
+        document.getElementById('statTotal').innerText = totalOrder.toLocaleString();
+        document.getElementById('statSudah').innerText = sudahInfo.toLocaleString();
+        document.getElementById('statBelum').innerText = belumInfo.toLocaleString();
+
+        renderTable(getFilteredData());
+        document.getElementById('resultPanel').classList.remove('hidden');
+    }
+
+    function copyVisibleResults() {
+        const rows = getFilteredData();
+        if (!rows.length) {
+            alert('Tidak ada data untuk disalin.');
+            return;
+        }
+
+        const csv = [
+            ['NO ORDER', 'NAMA GUDANG', 'ASAL FILE SHOPEE', 'WAKTU PESANAN DIBUAT', 'HARUS DIKIRIM SEBELUM', 'STATUS INFO'],
+            ...rows.map(item => [item.noOrder, item.namaGudang, item.asalToko, item.waktuDibuat, item.waktuKirim, item.status])
+        ].map(row => row.join('\t')).join('\n');
+
+        navigator.clipboard.writeText(csv)
+            .then(() => alert('Hasil terlihat berhasil disalin ke clipboard.'))
+            .catch(() => alert('Clipboard tidak tersedia di browser ini.'));
+    }
+
+    function sanitizeSheetName(name) {
+        const raw = String(name || 'UNKNOWN').trim();
+        const cleaned = raw.replace(/[\\/*?:\[\]]/g, '').replace(/\s+/g, ' ').slice(0, 31);
+        return cleaned || 'UNKNOWN';
+    }
+
+    function exportToExcel() {
+        const rows = getFilteredData();
+        if (!rows.length) return;
+
+        const groupedRows = {};
+        rows.forEach(item => {
+            const sheetKey = sanitizeSheetName(item.namaGudang || 'UNKNOWN');
+            if (!groupedRows[sheetKey]) {
+                groupedRows[sheetKey] = [];
+            }
+            groupedRows[sheetKey].push(item);
+        });
+
         const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, "CEK ORDER GABUNGAN");
-        XLSX.writeFile(wb, "Hasil_Cek_Order_Shopee_Gabungan.xlsx");
+        const header = ['NO ORDER', 'NAMA GUDANG', 'ASAL FILE SHOPEE', 'WAKTU PESANAN DIBUAT', 'HARUS DIKIRIM SEBELUM', 'STATUS INFO'];
+
+        Object.entries(groupedRows).forEach(([sheetName, items]) => {
+            const wsData = [header];
+            const colWidths = [18, 18, 22, 22, 18, 14];
+
+            items.forEach(item => {
+                wsData.push([
+                    item.noOrder,
+                    item.namaGudang,
+                    item.asalToko,
+                    item.waktuDibuat,
+                    item.waktuKirim,
+                    item.status
+                ]);
+
+                colWidths[0] = Math.max(colWidths[0], String(item.noOrder).length + 3);
+                colWidths[1] = Math.max(colWidths[1], String(item.namaGudang).length + 3);
+                colWidths[2] = Math.max(colWidths[2], String(item.asalToko).length + 3);
+                colWidths[3] = Math.max(colWidths[3], String(item.waktuDibuat).length + 3);
+                colWidths[4] = Math.max(colWidths[4], String(item.waktuKirim).length + 3);
+                colWidths[5] = Math.max(colWidths[5], String(item.status).length + 3);
+            });
+
+            const ws = XLSX.utils.aoa_to_sheet(wsData);
+            ws['!cols'] = colWidths.map(w => ({ wch: w }));
+
+            const range = XLSX.utils.decode_range(ws['!ref']);
+            for (let C = range.s.c; C <= range.e.c; ++C) {
+                const headerCell = XLSX.utils.encode_cell({ r: 0, c: C });
+                if (ws[headerCell]) {
+                    ws[headerCell].s = {
+                        fill: { fgColor: { rgb: 'FFC000' } },
+                        font: { bold: true, color: { rgb: '000000' } },
+                        alignment: { horizontal: 'center', vertical: 'center' }
+                    };
+                }
+            }
+
+            for (let R = range.s.r; R <= range.e.r; ++R) {
+                const cellRef = XLSX.utils.encode_cell({ c: 0, r: R });
+                if (ws[cellRef]) ws[cellRef].z = '@';
+            }
+
+            XLSX.utils.book_append_sheet(wb, ws, sheetName);
+        });
+
+        XLSX.writeFile(wb, 'Hasil_Cek_Order_Shopee_Gabungan.xlsx');
     }
 </script>
 

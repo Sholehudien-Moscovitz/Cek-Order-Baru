@@ -85,36 +85,128 @@
         .footer-copyright a:hover {
             text-decoration: underline;
         }
+        .modal {
+            position: fixed;
+            inset: 0;
+            background: rgba(15, 23, 42, 0.75);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            backdrop-filter: blur(4px);
+        }
+        .modal.show {
+            display: flex;
+        }
+        .modal-card {
+            width: min(92vw, 360px);
+            background: #111827;
+            border: 1px solid #334155;
+            border-radius: 14px;
+            padding: 24px;
+            box-shadow: 0 12px 30px rgba(0,0,0,0.4);
+        }
+        .modal-card h2 {
+            margin: 0 0 12px;
+            color: #ffb366;
+            text-align: center;
+        }
+        .modal-card label {
+            display: block;
+            margin-bottom: 8px;
+            font-size: 0.85rem;
+            color: #cbd5e1;
+        }
+        .modal-card input {
+            width: 100%;
+            box-sizing: border-box;
+            padding: 11px 12px;
+            border-radius: 8px;
+            border: 1px solid #475569;
+            background: #0f172a;
+            color: white;
+            margin-bottom: 14px;
+        }
+        .modal-btn {
+            width: 100%;
+            border: none;
+            border-radius: 8px;
+            background: linear-gradient(135deg, #fe5722, #ff6600);
+            color: white;
+            font-weight: 700;
+            padding: 12px;
+            cursor: pointer;
+        }
+        .login-message {
+            min-height: 20px;
+            margin: 10px 0 0;
+            font-size: 0.8rem;
+            text-align: center;
+        }
     </style>
 </head>
 <body>
-
 <div class="wrapper">
-    <!-- Kotak Menu Utama -->
     <div class="container">
         <h1>Dashboard Cek Order</h1>
         <p>Silakan pilih platform yang ingin Anda cek:</p>
-        
+
         <div class="btn-group">
             <a href="shopee.html" class="btn">❤️ Buka Cek Order Shopee</a>
             <a href="tiktok.html" class="btn btn-tiktok">💙 Buka Cek Order TikTok</a>
         </div>
     </div>
 
-    <!-- Copyright di dalam wrapper, posisinya dijamin tepat di bawah kotak -->
     <div class="footer-copyright">
-         Copyright &copy; 2026 . <span style="color: #00a2ff;">Sholehudien Moscovitz</span>.
+        Copyright &copy; 2026 . <span style="color: #00a2ff;">Sholehudien Moscovitz</span>.
+    </div>
+</div>
+
+<div id="loginModal" class="modal" aria-live="polite">
+    <div class="modal-card">
+        <h2>Login Akses Internal</h2>
+        <label for="passwordInput">Masukkan Password</label>
+        <input id="passwordInput" type="password" placeholder="Password Anda" />
+        <button id="loginBtn" class="modal-btn">Masuk</button>
+        <p id="loginMessage" class="login-message"></p>
     </div>
 </div>
 
 <script>
-    let passwordBenar = "jtgUF6GyNPQp"; 
-    let passwordUser = prompt("Masukkan Password Dulu Banggg:");
-    
-    if (passwordUser !== passwordBenar) {
-        alert("Password salah!! wle kasian gak bisa masuk ckckck");
-        document.body.innerHTML = "<h2 style='text-align:center; margin-top:100px; color:red;'>Akses Ditolak!! Gabisa masuk sini yee :p </h2>";
+    const passwordBenar = 'jtgUF6GyNPQp';
+    const modal = document.getElementById('loginModal');
+    const passwordInput = document.getElementById('passwordInput');
+    const loginBtn = document.getElementById('loginBtn');
+    const loginMessage = document.getElementById('loginMessage');
+
+    function showAccessDenied() {
+        modal.classList.add('show');
+        loginMessage.textContent = 'Password salah. Silakan coba lagi.';
+        loginMessage.style.color = '#fca5a5';
+        passwordInput.value = '';
+        passwordInput.focus();
     }
+
+    function validatePassword() {
+        const passwordUser = passwordInput.value.trim();
+        if (passwordUser === passwordBenar) {
+            modal.classList.remove('show');
+            modal.style.display = 'none';
+            document.body.classList.add('authorized');
+            return;
+        }
+        showAccessDenied();
+    }
+
+    loginBtn.addEventListener('click', validatePassword);
+    passwordInput.addEventListener('keydown', function (event) {
+        if (event.key === 'Enter') {
+            validatePassword();
+        }
+    });
+
+    modal.classList.add('show');
+    passwordInput.focus();
 </script>
 
 </body>
