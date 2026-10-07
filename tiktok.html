@@ -300,6 +300,17 @@
         return str;
     }
 
+    function normalizeTikTokBranchName(name) {
+        const cleanedName = String(name || '').trim().replace(/\s+/g, ' ');
+        const normalizedName = cleanedName.toUpperCase();
+
+        if (normalizedName === 'GRIYA DERWATI' || normalizedName === 'SHOP LOCATION') {
+            return 'Griya Derwati';
+        }
+
+        return cleanedName;
+    }
+
     async function prosesPengecekan() {
         const fileLamaInput = document.getElementById('fileLama');
         const textLamaInput = document.getElementById('textLama').value;
@@ -359,7 +370,7 @@
                 let waktuDibuat = row[29] ? String(row[29]).trim() : "-";
 
                 // Kolom AM = Indeks 38 (Nama Cabang / Warehouse)
-                let namaCabang = row[38] ? String(row[38]).trim() : "";
+                let namaCabang = normalizeTikTokBranchName(row[38]);
                 if (!namaCabang) namaCabang = "(TANPA CABANG)";
 
                 const isSudahInfo = dictLama.has(noOrder);
