@@ -727,13 +727,30 @@
         return cleaned || 'UNKNOWN';
     }
 
-    function formatTemplateDate(value) {
-        if (!value || value === '-') return '-';
-        const text = String(value).trim();
-        const asDate = new Date(text.replace(' ', 'T'));
-        if (Number.isNaN(asDate.getTime())) {
-            return text;
+    function parseTemplateDate(value) {
+        const text = String(value || '').trim();
+        if (!text || text === '-') return null;
+
+        let match = text.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})(?:[ T,]+(\d{1,2}):(\d{2})(?::(\d{2}))?)?/);
+        if (match) {
+            const [, year, month, day, hour = '0', minute = '0', second = '0'] = match;
+            return new Date(Number(year), Number(month) - 1, Number(day), Number(hour), Number(minute), Number(second));
         }
+
+        match = text.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})(?:[ T,]+(\d{1,2}):(\d{2})(?::(\d{2}))?)?/);
+        if (match) {
+            const [, day, month, year, hour = '0', minute = '0', second = '0'] = match;
+            return new Date(Number(year), Number(month) - 1, Number(day), Number(hour), Number(minute), Number(second));
+        }
+
+        const parsed = new Date(text.replace(' ', 'T'));
+        return Number.isNaN(parsed.getTime()) ? null : parsed;
+    }
+
+    function formatTemplateDate(value) {
+        const text = String(value || '').trim();
+        const asDate = parseTemplateDate(text);
+        if (!asDate) return text || '-';
         const day = String(asDate.getDate()).padStart(2, '0');
         const month = String(asDate.getMonth() + 1).padStart(2, '0');
         const year = asDate.getFullYear();
@@ -741,12 +758,9 @@
     }
 
     function formatTemplateTimeTag(value) {
-        if (!value || value === '-') return '>12:00';
         const text = String(value).trim();
-        const asDate = new Date(text.replace(' ', 'T'));
-        if (!Number.isNaN(asDate.getTime())) {
-            return asDate.getHours() < 12 ? '<12:00' : '>12:00';
-        }
+        const asDate = parseTemplateDate(text);
+        if (asDate) return asDate.getHours() < 12 ? '<12:00' : '>12:00';
 
         const timeMatch = text.match(/(\d{1,2})(?::|\.|,)?(\d{2})/);
         if (timeMatch) {
