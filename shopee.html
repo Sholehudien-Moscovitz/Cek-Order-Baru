@@ -348,11 +348,16 @@
                 </select>
             </div>
             <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                <select id="whatsappSheetSelect" aria-label="Pilih sheet untuk pesan WhatsApp" style="padding: 10px; background:#0f172a; color:white; border:1px solid var(--border); border-radius:6px;">
+                    <option value="">Pilih gudang</option>
+                </select>
+                <button onclick="openWhatsAppTemplate()" style="padding: 10px 18px; font-size: 0.9rem; background: linear-gradient(135deg, #16a34a, #15803d); box-shadow: 0 4px 10px rgba(21, 128, 61, 0.2);">Buka WhatsApp</button>
                 <button id="copyBtn" onclick="copyVisibleResults()" style="padding: 10px 18px; font-size: 0.9rem; background: linear-gradient(135deg, #0ea5e9, #2563eb); box-shadow: 0 4px 10px rgba(37, 99, 235, 0.2);">Copy Hasil</button>
                 <button id="resetBtn" onclick="resetFilters()" style="padding: 10px 18px; font-size: 0.9rem; background: linear-gradient(135deg, #64748b, #475569); box-shadow: 0 4px 10px rgba(100, 116, 139, 0.2);">Reset</button>
                 <button onclick="exportToExcel()" style="padding: 10px 20px; font-size: 0.9rem;">Export Excel</button>
             </div>
         </div>
+        <p style="margin: -5px 0 15px; color:#94a3b8; font-size:0.85rem;">Pesan dibuat dari data gudang yang dipilih. Di WhatsApp, pilih grup tujuan lalu tekan kirim.</p>
 
         <div class="table-container">
             <table id="resultTable">
@@ -462,6 +467,7 @@
     function renderTable(data) {
         const tbody = document.getElementById('tableBody');
         tbody.innerHTML = '';
+        updateWhatsAppSheetOptions();
 
         if (!data.length) {
             tbody.innerHTML = `
@@ -655,6 +661,64 @@
         navigator.clipboard.writeText(csv)
             .then(() => alert('Hasil terlihat berhasil disalin ke clipboard.'))
             .catch(() => alert('Clipboard tidak tersedia di browser ini.'));
+    }
+
+    function updateWhatsAppSheetOptions() {
+        const select = document.getElementById('whatsappSheetSelect');
+        const selectedValue = select.value;
+        const warehouseNames = [...new Set(getFilteredData().map(item => item.namaGudang || 'UNKNOWN'))]
+            .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+
+        select.replaceChildren(new Option('Pilih gudang', ''));
+        warehouseNames.forEach(name => select.add(new Option(name, name)));
+        if (warehouseNames.includes(selectedValue)) select.value = selectedValue;
+    }
+
+    function buildWhatsAppTemplate(rows) {
+        const templateGroups = new Map();
+        rows.forEach(item => {
+            const orderDateText = formatTemplateDate(item.waktuDibuat);
+            const timeTag = formatTemplateTimeTag(item.waktuDibuat);
+            const kirimText = formatTemplateDate(item.waktuKirim);
+            const groupKey = `${orderDateText}|${timeTag}|${kirimText}`;
+            if (!templateGroups.has(groupKey)) {
+                templateGroups.set(groupKey, { orderDateText, timeTag, kirimText, orders: [] });
+            }
+            templateGroups.get(groupKey).orders.push(item);
+        });
+
+        return [...templateGroups.values()].map(group => {
+            const orderLines = group.orders.map(item => {
+                const extraInfo = String(item.namaGudang).trim().toUpperCase() === 'YOS STREAMVERSE'
+                    ? `\n${item.asalToko}`
+                    : '';
+                return `${item.noOrder}${extraInfo}`;
+            });
+            return [
+                'Info pak/bu, order shopee baru berikut :',
+                `* Order masuk : ${group.orderDateText} ${group.timeTag}`,
+                `* Batas Kirim : ${group.kirimText} 23:59`,
+                ...orderLines,
+                'terima kasih.'
+            ].join('\n');
+        }).join('\n\n');
+    }
+
+    function openWhatsAppTemplate() {
+        const warehouseName = document.getElementById('whatsappSheetSelect').value;
+        if (!warehouseName) {
+            alert('Pilih gudang terlebih dahulu.');
+            return;
+        }
+
+        const rows = getFilteredData().filter(item => (item.namaGudang || 'UNKNOWN') === warehouseName);
+        if (!rows.length) {
+            alert('Tidak ada order untuk gudang yang dipilih.');
+            return;
+        }
+
+        const url = `https://wa.me/?text=${encodeURIComponent(buildWhatsAppTemplate(rows))}`;
+        window.open(url, '_blank');
     }
 
     function sanitizeSheetName(name) {
