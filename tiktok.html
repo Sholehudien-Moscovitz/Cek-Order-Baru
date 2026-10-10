@@ -543,21 +543,10 @@
     }
 
     function buildWhatsAppTemplate(rows) {
-        const templateGroups = new Map();
-        rows.forEach(item => {
-            const dateText = formatTikTokTemplateDate(item.waktuDibuat);
-            const timeTag = formatTikTokTimeTag(item.waktuDibuat);
-            const groupKey = `${dateText}|${timeTag}`;
-            if (!templateGroups.has(groupKey)) {
-                templateGroups.set(groupKey, { dateText, timeTag, orders: [] });
-            }
-            templateGroups.get(groupKey).orders.push(item.noOrder);
-        });
-
-        return [...templateGroups.values()].map(group => [
+        return [...groupTikTokTemplateOrders(rows).values()].map(group => [
             'Info pak/bu, order tiktok baru berikut :',
             `* Order masuk : ${group.dateText} ${group.timeTag}`,
-            ...group.orders,
+            ...group.orders.map(item => item.noOrder),
             'terima kasih.'
         ].join('\n')).join('\n\n');
     }
@@ -624,6 +613,20 @@
         return match && Number(match[1]) < 12 ? '<12:00' : '>12:00';
     }
 
+    function groupTikTokTemplateOrders(rows) {
+        const templateGroups = new Map();
+        rows.forEach(item => {
+            const dateText = formatTikTokTemplateDate(item.waktuDibuat);
+            const timeTag = formatTikTokTimeTag(item.waktuDibuat);
+            const groupKey = `${dateText}|${timeTag}`;
+            if (!templateGroups.has(groupKey)) {
+                templateGroups.set(groupKey, { dateText, timeTag, orders: [] });
+            }
+            templateGroups.get(groupKey).orders.push(item);
+        });
+        return templateGroups;
+    }
+
     function buildTikTokSheet(rows, withTemplate = false) {
         const wsData = [["NO ORDER", "NAMA GUDANG", "WAKTU PESANAN DIBUAT", "STATUS INFO"]];
         rows.forEach(item => {
@@ -631,22 +634,11 @@
         });
 
         if (withTemplate) {
-            const templateGroups = new Map();
-            rows.forEach(item => {
-                const dateText = formatTikTokTemplateDate(item.waktuDibuat);
-                const timeTag = formatTikTokTimeTag(item.waktuDibuat);
-                const groupKey = `${dateText}|${timeTag}`;
-                if (!templateGroups.has(groupKey)) {
-                    templateGroups.set(groupKey, { dateText, timeTag, orders: [] });
-                }
-                templateGroups.get(groupKey).orders.push(item.noOrder);
-            });
-
-            templateGroups.forEach(group => {
+            groupTikTokTemplateOrders(rows).forEach(group => {
                 wsData.push(['']);
                 wsData.push(['Info pak/bu, order tiktok baru berikut :']);
                 wsData.push([`* Order masuk : ${group.dateText} ${group.timeTag}`]);
-                group.orders.forEach(order => wsData.push([order]));
+                group.orders.forEach(item => wsData.push([item.noOrder]));
                 wsData.push(['terima kasih.']);
                 wsData.push(['']);
             });
