@@ -675,17 +675,7 @@
     }
 
     function buildWhatsAppTemplate(rows) {
-        const templateGroups = new Map();
-        rows.forEach(item => {
-            const orderDateText = formatTemplateDate(item.waktuDibuat);
-            const timeTag = formatTemplateTimeTag(item.waktuDibuat);
-            const kirimText = formatTemplateDate(item.waktuKirim);
-            const groupKey = `${orderDateText}|${timeTag}|${kirimText}`;
-            if (!templateGroups.has(groupKey)) {
-                templateGroups.set(groupKey, { orderDateText, timeTag, kirimText, orders: [] });
-            }
-            templateGroups.get(groupKey).orders.push(item);
-        });
+        const templateGroups = groupTemplateOrders(rows);
 
         return [...templateGroups.values()].map(group => {
             const orderLines = group.orders.map(item => {
@@ -697,7 +687,7 @@
             return [
                 'Info pak/bu, order shopee baru berikut :',
                 `* Order masuk : ${group.orderDateText} ${group.timeTag}`,
-                `* Batas Kirim : ${group.kirimText} 23:59`,
+                `* Batas Kirim : ${group.kirimRange} 23:59`,
                 ...orderLines,
                 'terima kasih.'
             ].join('\n');
@@ -771,6 +761,43 @@
         return '>12:00';
     }
 
+    function groupTemplateOrders(rows) {
+        const templateGroups = new Map();
+        rows.forEach(item => {
+            const orderDateText = formatTemplateDate(item.waktuDibuat);
+            const timeTag = formatTemplateTimeTag(item.waktuDibuat);
+            const groupKey = `${orderDateText}|${timeTag}`;
+            if (!templateGroups.has(groupKey)) {
+                templateGroups.set(groupKey, { orderDateText, timeTag, orders: [] });
+            }
+            templateGroups.get(groupKey).orders.push(item);
+        });
+
+        templateGroups.forEach(group => {
+            const deadlines = group.orders
+                .map(item => parseTemplateDate(item.waktuKirim))
+                .filter(Boolean)
+                .map(date => new Date(date.getFullYear(), date.getMonth(), date.getDate()))
+                .sort((a, b) => a - b);
+            const firstDeadline = deadlines[0];
+            const lastDeadline = deadlines[deadlines.length - 1];
+
+            if (!firstDeadline) {
+                group.kirimRange = formatTemplateDate(group.orders[0].waktuKirim);
+                return;
+            }
+
+            const formatDate = date => formatTemplateDate(
+                `${date.getFullYear()}-${date.getMonth() + 1}-${date.getDate()}`
+            );
+            const firstText = formatDate(firstDeadline);
+            const lastText = formatDate(lastDeadline);
+            group.kirimRange = firstText === lastText ? firstText : `${firstText} s.d. ${lastText}`;
+        });
+
+        return templateGroups;
+    }
+
     function buildExcelSheet(rows, sheetName, withTemplate = false) {
         const header = ['NO ORDER', 'NAMA GUDANG', 'ASAL FILE SHOPEE', 'WAKTU PESANAN DIBUAT', 'HARUS DIKIRIM SEBELUM', 'STATUS INFO'];
         const wsData = [header];
@@ -795,28 +822,13 @@
         });
 
         if (withTemplate) {
-            const templateGroups = new Map();
-            rows.forEach(item => {
-                const orderDateText = formatTemplateDate(item.waktuDibuat);
-                const timeTag = formatTemplateTimeTag(item.waktuDibuat);
-                const kirimText = formatTemplateDate(item.waktuKirim);
-                const groupKey = `${orderDateText}|${timeTag}|${kirimText}`;
-                if (!templateGroups.has(groupKey)) {
-                    templateGroups.set(groupKey, {
-                        orderDateText,
-                        timeTag,
-                        kirimText,
-                        orders: []
-                    });
-                }
-                templateGroups.get(groupKey).orders.push(item);
-            });
+            const templateGroups = groupTemplateOrders(rows);
 
             templateGroups.forEach(group => {
                 wsData.push(['']);
                 wsData.push(['Info pak/bu, order shopee baru berikut :']);
                 wsData.push([`* Order masuk : ${group.orderDateText} ${group.timeTag}`]);
-                wsData.push([`* Batas Kirim : ${group.kirimText} 23:59`]);
+                wsData.push([`* Batas Kirim : ${group.kirimRange} 23:59`]);
                 group.orders.forEach(item => {
                     const orderRow = [item.noOrder];
                     if (String(item.namaGudang).trim().toUpperCase() === 'YOS STREAMVERSE') {
