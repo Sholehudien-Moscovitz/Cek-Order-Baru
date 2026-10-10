@@ -262,6 +262,7 @@
                             <th>DELIVERED TIME</th>
                             <th>STATUS OMS</th>
                             <th>STATUS TIKTOK</th>
+                            <th>NAMA GUDANG</th>
                         </tr>
                     </thead>
                     <tbody id="cancelTableBody"></tbody>
@@ -519,7 +520,7 @@
         if (!cancelledOrdersData.length) {
             const row = tbody.insertRow();
             const cell = row.insertCell();
-            cell.colSpan = 5;
+            cell.colSpan = 6;
             cell.textContent = 'Tidak ada order batal TikTok yang ditemukan di data OMS.';
             cell.style.textAlign = 'center';
             return;
@@ -532,7 +533,8 @@
                 order.deliveredDate,
                 order.deliveredTime,
                 order.omsStatus,
-                order.tiktokStatus
+                order.tiktokStatus,
+                order.warehouseName || '-'
             ].forEach(value => {
                 row.insertCell().textContent = value;
             });
@@ -546,26 +548,26 @@
         }
 
         const rows = [
-            ['NO. ORDER', 'NAMA GUDANG', 'DELIVERED DATE', 'DELIVERED TIME', 'STATUS OMS', 'STATUS TIKTOK', 'CANCEL REASON'],
+            ['NO. ORDER', 'DELIVERED DATE', 'DELIVERED TIME', 'STATUS OMS', 'STATUS TIKTOK', 'CANCEL REASON', 'NAMA GUDANG'],
             ...cancelledOrdersData.map(order => [
                 order.noOrder,
-                order.warehouseName || '-',
                 order.deliveredDate,
                 order.deliveredTime,
                 order.omsStatus,
                 order.tiktokStatus,
-                order.cancelReason || '-'
+                order.cancelReason || '-',
+                order.warehouseName || '-'
             ])
         ];
         const worksheet = XLSX.utils.aoa_to_sheet(rows);
         worksheet['!cols'] = [
             { wch: 24 },
-            { wch: 28 },
             { wch: 18 },
             { wch: 18 },
             { wch: 40 },
             { wch: 20 },
-            { wch: 40 }
+            { wch: 40 },
+            { wch: 28 }
         ];
         for (let index = 1; index < rows.length; index++) {
             const cellAddress = XLSX.utils.encode_cell({ r: index, c: 0 });
