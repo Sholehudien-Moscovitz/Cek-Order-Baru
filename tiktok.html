@@ -455,25 +455,29 @@
                 if (!orderNumber) continue;
 
                 const cancelReason = String(row[36] ?? '').trim();
+                const warehouseName = String(row[38] ?? '').trim();
                 if (!cancelledByOrder.has(orderNumber) || (!cancelledByOrder.get(orderNumber).cancelReason && cancelReason)) {
                     cancelledByOrder.set(orderNumber, {
                         noOrder: orderNumber,
                         tiktokStatus: String(row[1] ?? '').trim(),
-                        cancelReason
+                        cancelReason,
+                        warehouseName
                     });
                 }
             }
 
-            cancelledOrdersData = [...cancelledByOrder.values()].map(order => {
-                const delivered = deliveredByOrder.get(order.noOrder);
-                const statuses = omsStatuses.get(order.noOrder);
-                return {
-                    ...order,
-                    deliveredDate: delivered?.date || '-',
-                    deliveredTime: delivered?.time || '-',
-                    omsStatus: statuses ? [...statuses].join('; ') : 'Tidak ditemukan'
-                };
-            });
+            cancelledOrdersData = [...cancelledByOrder.values()]
+                .filter(order => omsStatuses.has(order.noOrder))
+                .map(order => {
+                    const delivered = deliveredByOrder.get(order.noOrder);
+                    const statuses = omsStatuses.get(order.noOrder);
+                    return {
+                        ...order,
+                        deliveredDate: delivered?.date || '-',
+                        deliveredTime: delivered?.time || '-',
+                        omsStatus: [...statuses].join('; ')
+                    };
+                });
 
             renderCancelledOrders();
             document.getElementById('cancelResultPanel').classList.remove('hidden');
@@ -510,13 +514,13 @@
         const tbody = document.getElementById('cancelTableBody');
         tbody.replaceChildren();
         document.getElementById('cancelResultSummary').textContent =
-            `Ditemukan ${cancelledOrdersData.length.toLocaleString()} order batal TikTok.`;
+            `Ditemukan ${cancelledOrdersData.length.toLocaleString()} order batal TikTok yang tercatat di data OMS.`;
 
         if (!cancelledOrdersData.length) {
             const row = tbody.insertRow();
             const cell = row.insertCell();
             cell.colSpan = 5;
-            cell.textContent = 'Tidak ada order berstatus batal pada file TikTok.';
+            cell.textContent = 'Tidak ada order batal TikTok yang ditemukan di data OMS.';
             cell.style.textAlign = 'center';
             return;
         }
@@ -542,9 +546,10 @@
         }
 
         const rows = [
-            ['NO. ORDER', 'DELIVERED DATE', 'DELIVERED TIME', 'STATUS OMS', 'STATUS TIKTOK', 'CANCEL REASON'],
+            ['NO. ORDER', 'NAMA GUDANG', 'DELIVERED DATE', 'DELIVERED TIME', 'STATUS OMS', 'STATUS TIKTOK', 'CANCEL REASON'],
             ...cancelledOrdersData.map(order => [
                 order.noOrder,
+                order.warehouseName || '-',
                 order.deliveredDate,
                 order.deliveredTime,
                 order.omsStatus,
@@ -555,6 +560,7 @@
         const worksheet = XLSX.utils.aoa_to_sheet(rows);
         worksheet['!cols'] = [
             { wch: 24 },
+            { wch: 28 },
             { wch: 18 },
             { wch: 18 },
             { wch: 40 },
