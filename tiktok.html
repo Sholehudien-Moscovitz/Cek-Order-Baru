@@ -219,6 +219,57 @@
         <button onclick="prosesPengecekan()">PROSES CEK ORDER</button>
     </div>
 
+    <section class="card" aria-labelledby="cancelCheckTitle">
+        <h2 id="cancelCheckTitle">Cek Order Batal TikTok</h2>
+        <p style="color:#94a3b8;">Unggah semua file untuk mencocokkan order berstatus batal dengan data OMS.</p>
+        <p style="color:#94a3b8; font-size:0.85rem;">
+            TikTok dibaca mulai baris 3 (A: No. Order, B: Status, AK: Cancel reason). Delivered dan Refund dibaca mulai baris 2.
+            Picking/Packed dibaca mulai baris 3 dari sheet 1/2 (E: No. Order, P: Status). Customer Group yang dipakai:
+            TikTok dan Tokopedia Supermarket. Cancel reason disertakan di file Excel.
+        </p>
+        <div class="upload-grid">
+            <div>
+                <label for="cancelTikTokFile">File semua order TikTok:</label>
+                <input type="file" id="cancelTikTokFile" accept=".xlsx, .xls, .csv">
+            </div>
+            <div>
+                <label for="cancelDeliveredFile">File Delivered:</label>
+                <input type="file" id="cancelDeliveredFile" accept=".xlsx, .xls, .csv">
+            </div>
+            <div>
+                <label for="cancelRefundFile">File Refund:</label>
+                <input type="file" id="cancelRefundFile" accept=".xlsx, .xls, .csv">
+            </div>
+            <div>
+                <label for="cancelPickingPackedFile">File gabungan Picking (sheet 1) dan Packed (sheet 2):</label>
+                <input type="file" id="cancelPickingPackedFile" accept=".xlsx, .xls">
+            </div>
+        </div>
+        <div class="btn-container">
+            <button onclick="prosesCekOrderBatal()">PROSES CEK ORDER BATAL</button>
+        </div>
+        <div id="cancelResultPanel" class="hidden">
+            <p id="cancelResultSummary"></p>
+            <div style="text-align:right; margin-bottom:10px;">
+                <button onclick="exportOrderBatalToExcel()">Export Hasil Batal ke Excel</button>
+            </div>
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>NO. ORDER</th>
+                            <th>DELIVERED DATE</th>
+                            <th>DELIVERED TIME</th>
+                            <th>STATUS OMS</th>
+                            <th>STATUS TIKTOK</th>
+                        </tr>
+                    </thead>
+                    <tbody id="cancelTableBody"></tbody>
+                </table>
+            </div>
+        </div>
+    </section>
+
     <!-- Panel Hasil -->
     <div id="resultPanel" class="hidden">
         <div class="summary-grid">
@@ -288,6 +339,7 @@
 
 <script>
     let processedData = [];
+    let cancelledOrdersData = [];
 
     // Fungsi pembersihan string nomor order
     function bersihkanOrder(val) {
@@ -309,6 +361,214 @@
         }
 
         return cleanedName;
+    }
+
+    function normalizeOrderStatus(value) {
+        return String(value ?? '').trim().toLowerCase();
+    }
+
+    function isTikTokCancelledStatus(value) {
+        return /(cancel|batal)/i.test(String(value ?? '').trim());
+    }
+
+    function isTikTokCustomerGroup(value) {
+        const customerGroup = normalizeOrderStatus(value);
+        return customerGroup === 'tiktok' || customerGroup === 'tokopedia supermarket';
+    }
+
+    function addOmsStatus(statusMap, orderNumber, status) {
+        if (!statusMap.has(orderNumber)) statusMap.set(orderNumber, new Set());
+        statusMap.get(orderNumber).add(status);
+    }
+
+    async function prosesCekOrderBatal() {
+        const fileInputs = [
+            ['cancelTikTokFile', 'file semua order TikTok'],
+            ['cancelDeliveredFile', 'file Delivered'],
+            ['cancelRefundFile', 'file Refund'],
+            ['cancelPickingPackedFile', 'file Picking/Packed']
+        ];
+        const files = fileInputs.map(([id]) => document.getElementById(id).files[0]);
+        const missingFile = fileInputs.find((_, index) => !files[index]);
+        if (missingFile) {
+            alert(`Harap upload ${missingFile[1]}.`);
+            return;
+        }
+
+        try {
+            const [tiktokWorkbook, deliveredWorkbook, refundWorkbook, pickingPackedWorkbook] = await Promise.all(
+                files.map(readExcelWorkbook)
+            );
+            if (pickingPackedWorkbook.SheetNames.length < 2) {
+                throw new Error('File Picking/Packed harus memiliki sheet 1 (Picking) dan sheet 2 (Packed).');
+            }
+
+            const deliveredRows = readWorkbookSheet(deliveredWorkbook, 0);
+            const refundRows = readWorkbookSheet(refundWorkbook, 0);
+            const pickingRows = readWorkbookSheet(pickingPackedWorkbook, 0);
+            const packedRows = readWorkbookSheet(pickingPackedWorkbook, 1);
+            const omsStatuses = new Map();
+            const deliveredByOrder = new Map();
+
+            for (let i = 1; i < deliveredRows.length; i++) {
+                const row = deliveredRows[i];
+                if (!row || !isTikTokCustomerGroup(row[11])) continue;
+                const orderNumber = bersihkanOrder(row[2]);
+                if (!orderNumber) continue;
+                if (!deliveredByOrder.has(orderNumber)) {
+                    deliveredByOrder.set(orderNumber, {
+                        date: String(row[5] ?? '').trim() || '-',
+                        time: String(row[6] ?? '').trim() || '-'
+                    });
+                }
+                addOmsStatus(omsStatuses, orderNumber, 'Delivered');
+            }
+
+            for (let i = 1; i < refundRows.length; i++) {
+                const row = refundRows[i];
+                if (!row || !isTikTokCustomerGroup(row[3])) continue;
+                const orderNumber = bersihkanOrder(row[2]);
+                if (!orderNumber) continue;
+                addOmsStatus(omsStatuses, orderNumber, 'Refund');
+            }
+
+            [
+                { rows: pickingRows, label: 'Picking' },
+                { rows: packedRows, label: 'Packed' }
+            ].forEach(({ rows, label }) => {
+                for (let i = 2; i < rows.length; i++) {
+                    const row = rows[i];
+                    if (!row) continue;
+                    const orderNumber = bersihkanOrder(row[4]);
+                    if (!orderNumber) continue;
+                    const status = String(row[15] ?? '').trim();
+                    addOmsStatus(omsStatuses, orderNumber, status ? `${label}: ${status}` : label);
+                }
+            });
+
+            const cancelledByOrder = new Map();
+            const tiktokRows = readWorkbookSheet(tiktokWorkbook, 0);
+            for (let i = 2; i < tiktokRows.length; i++) {
+                const row = tiktokRows[i];
+                if (!row || !isTikTokCancelledStatus(row[1])) continue;
+                const orderNumber = bersihkanOrder(row[0]);
+                if (!orderNumber) continue;
+
+                const cancelReason = String(row[36] ?? '').trim();
+                if (!cancelledByOrder.has(orderNumber) || (!cancelledByOrder.get(orderNumber).cancelReason && cancelReason)) {
+                    cancelledByOrder.set(orderNumber, {
+                        noOrder: orderNumber,
+                        tiktokStatus: String(row[1] ?? '').trim(),
+                        cancelReason
+                    });
+                }
+            }
+
+            cancelledOrdersData = [...cancelledByOrder.values()].map(order => {
+                const delivered = deliveredByOrder.get(order.noOrder);
+                const statuses = omsStatuses.get(order.noOrder);
+                return {
+                    ...order,
+                    deliveredDate: delivered?.date || '-',
+                    deliveredTime: delivered?.time || '-',
+                    omsStatus: statuses ? [...statuses].join('; ') : 'Tidak ditemukan'
+                };
+            });
+
+            renderCancelledOrders();
+            document.getElementById('cancelResultPanel').classList.remove('hidden');
+        } catch (error) {
+            console.error('Gagal memproses pengecekan order batal TikTok:', error);
+            alert(`Gagal memproses file order batal: ${error.message}`);
+        }
+    }
+
+    function readExcelWorkbook(file) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = event => {
+                try {
+                    const data = new Uint8Array(event.target.result);
+                    resolve(XLSX.read(data, { type: 'array', raw: false }));
+                } catch (error) {
+                    reject(error);
+                }
+            };
+            reader.onerror = () => reject(reader.error || new Error(`Gagal membaca file ${file.name}.`));
+            reader.readAsArrayBuffer(file);
+        });
+    }
+
+    function readWorkbookSheet(workbook, sheetIndex) {
+        const sheetName = workbook.SheetNames[sheetIndex];
+        if (!sheetName) throw new Error(`Sheet ke-${sheetIndex + 1} tidak ditemukan.`);
+        const sheet = workbook.Sheets[sheetName];
+        return XLSX.utils.sheet_to_json(sheet, { header: 1, raw: false });
+    }
+
+    function renderCancelledOrders() {
+        const tbody = document.getElementById('cancelTableBody');
+        tbody.replaceChildren();
+        document.getElementById('cancelResultSummary').textContent =
+            `Ditemukan ${cancelledOrdersData.length.toLocaleString()} order batal TikTok.`;
+
+        if (!cancelledOrdersData.length) {
+            const row = tbody.insertRow();
+            const cell = row.insertCell();
+            cell.colSpan = 5;
+            cell.textContent = 'Tidak ada order berstatus batal pada file TikTok.';
+            cell.style.textAlign = 'center';
+            return;
+        }
+
+        cancelledOrdersData.forEach(order => {
+            const row = tbody.insertRow();
+            [
+                order.noOrder,
+                order.deliveredDate,
+                order.deliveredTime,
+                order.omsStatus,
+                order.tiktokStatus
+            ].forEach(value => {
+                row.insertCell().textContent = value;
+            });
+        });
+    }
+
+    function exportOrderBatalToExcel() {
+        if (!cancelledOrdersData.length) {
+            alert('Tidak ada hasil order batal untuk diekspor.');
+            return;
+        }
+
+        const rows = [
+            ['NO. ORDER', 'DELIVERED DATE', 'DELIVERED TIME', 'STATUS OMS', 'STATUS TIKTOK', 'CANCEL REASON'],
+            ...cancelledOrdersData.map(order => [
+                order.noOrder,
+                order.deliveredDate,
+                order.deliveredTime,
+                order.omsStatus,
+                order.tiktokStatus,
+                order.cancelReason || '-'
+            ])
+        ];
+        const worksheet = XLSX.utils.aoa_to_sheet(rows);
+        worksheet['!cols'] = [
+            { wch: 24 },
+            { wch: 18 },
+            { wch: 18 },
+            { wch: 40 },
+            { wch: 20 },
+            { wch: 40 }
+        ];
+        for (let index = 1; index < rows.length; index++) {
+            const cellAddress = XLSX.utils.encode_cell({ r: index, c: 0 });
+            if (worksheet[cellAddress]) worksheet[cellAddress].z = '@';
+        }
+
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, 'ORDER BATAL TIKTOK');
+        XLSX.writeFile(workbook, 'Hasil_Cek_Order_Batal_TikTok.xlsx');
     }
 
     async function prosesPengecekan() {
