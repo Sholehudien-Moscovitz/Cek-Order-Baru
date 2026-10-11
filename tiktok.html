@@ -314,25 +314,25 @@
 
     <section id="cancelOrderView" class="card hidden" aria-labelledby="cancelCheckTitle">
         <h2 id="cancelCheckTitle">Cek Order Batal TikTok</h2>
-        <p style="color:#94a3b8;">Upload semua file untuk mencocokan data order batal dengan status OMS.</p>
+        <p style="color:#94a3b8;">File TikTok dan Picking/Packed wajib diupload. File Delivered dan Refund opsional.</p>
         <p style="color:#94a3b8; font-size:0.85rem;">
             "Tingtong!"
         </p>
         <div class="upload-grid">
             <div>
-                <label for="cancelTikTokFile">File TikTok:</label>
+                <label for="cancelTikTokFile">File TikTok (wajib):</label>
                 <input type="file" id="cancelTikTokFile" accept=".xlsx, .xls, .csv">
             </div>
             <div>
-                <label for="cancelDeliveredFile">File Delivered:</label>
+                <label for="cancelDeliveredFile">File Delivered (opsional):</label>
                 <input type="file" id="cancelDeliveredFile" accept=".xlsx, .xls, .csv">
             </div>
             <div>
-                <label for="cancelRefundFile">File Refund:</label>
+                <label for="cancelRefundFile">File Refund (opsional):</label>
                 <input type="file" id="cancelRefundFile" accept=".xlsx, .xls, .csv">
             </div>
             <div>
-                <label for="cancelPickingPackedFile">File Picking & Packed:</label>
+                <label for="cancelPickingPackedFile">File Picking & Packed (wajib; Sheet 2 Packed opsional):</label>
                 <input type="file" id="cancelPickingPackedFile" accept=".xlsx, .xls">
             </div>
         </div>
@@ -421,31 +421,29 @@
     }
 
     async function prosesCekOrderBatal() {
-        const fileInputs = [
-            ['cancelTikTokFile', 'file semua order TikTok'],
-            ['cancelDeliveredFile', 'file Delivered'],
-            ['cancelRefundFile', 'file Refund'],
-            ['cancelPickingPackedFile', 'file Picking/Packed']
-        ];
-        const files = fileInputs.map(([id]) => document.getElementById(id).files[0]);
-        const missingFile = fileInputs.find((_, index) => !files[index]);
-        if (missingFile) {
-            alert(`Harap upload ${missingFile[1]}.`);
+        const tiktokFile = document.getElementById('cancelTikTokFile').files[0];
+        const deliveredFile = document.getElementById('cancelDeliveredFile').files[0];
+        const refundFile = document.getElementById('cancelRefundFile').files[0];
+        const pickingPackedFile = document.getElementById('cancelPickingPackedFile').files[0];
+        if (!tiktokFile || !pickingPackedFile) {
+            alert('Harap upload file TikTok dan file Picking/Packed.');
             return;
         }
 
         try {
-            const [tiktokWorkbook, deliveredWorkbook, refundWorkbook, pickingPackedWorkbook] = await Promise.all(
-                files.map(readExcelWorkbook)
-            );
-            if (pickingPackedWorkbook.SheetNames.length < 2) {
-                throw new Error('File Picking/Packed harus memiliki sheet 1 (Picking) dan sheet 2 (Packed).');
-            }
+            const [tiktokWorkbook, deliveredWorkbook, refundWorkbook, pickingPackedWorkbook] = await Promise.all([
+                readExcelWorkbook(tiktokFile),
+                deliveredFile ? readExcelWorkbook(deliveredFile) : Promise.resolve(null),
+                refundFile ? readExcelWorkbook(refundFile) : Promise.resolve(null),
+                readExcelWorkbook(pickingPackedFile)
+            ]);
 
-            const deliveredRows = readWorkbookSheet(deliveredWorkbook, 0);
-            const refundRows = readWorkbookSheet(refundWorkbook, 0);
+            const deliveredRows = deliveredWorkbook ? readWorkbookSheet(deliveredWorkbook, 0) : [];
+            const refundRows = refundWorkbook ? readWorkbookSheet(refundWorkbook, 0) : [];
             const pickingRows = readWorkbookSheet(pickingPackedWorkbook, 0);
-            const packedRows = readWorkbookSheet(pickingPackedWorkbook, 1);
+            const packedRows = pickingPackedWorkbook.SheetNames.length > 1
+                ? readWorkbookSheet(pickingPackedWorkbook, 1)
+                : [];
             const omsStatuses = new Map();
             const deliveredByOrder = new Map();
 
