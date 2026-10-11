@@ -59,6 +59,14 @@
             margin-bottom: 20px;
         }
 
+        .upload-manager {
+            margin-bottom: 20px;
+        }
+
+        .upload-manager .upload-grid {
+            margin-bottom: 0;
+        }
+
         .view-switcher {
             display: flex;
             justify-content: center;
@@ -239,24 +247,26 @@
     </nav>
 
     <section id="newOrderView" aria-labelledby="newOrderTab">
-    <div class="upload-grid">
-        <!-- Input Data Lama -->
-        <div class="card">
-            <h3>1. Data Lama (Acuan)</h3>
-            <label>Upload File Excel Data Lama:</label>
-            <input type="file" id="fileLama" accept=".xlsx, .xls, .csv">
-            <label>Atau Paste Nomor Order (1 nomor per baris):</label>
-            <textarea id="textLama" rows="4" style="width:100%; background:#0f172a; border:1px solid var(--border); color:#fff; border-radius:6px; padding:8px; box-sizing:border-box;" placeholder="Contoh:&#10;578123456789&#10;578123456790"></textarea>
-        </div>
+    <div class="card upload-manager">
+        <div class="upload-grid">
+            <!-- Input Data Lama -->
+            <div class="upload-section">
+                <h3>1. Data Lama (Acuan)</h3>
+                <label>Upload File Excel Data Lama:</label>
+                <input type="file" id="fileLama" accept=".xlsx, .xls, .csv">
+                <label>Atau Paste Nomor Order (1 nomor per baris):</label>
+                <textarea id="textLama" rows="4" style="width:100%; background:#0f172a; border:1px solid var(--border); color:#fff; border-radius:6px; padding:8px; box-sizing:border-box;" placeholder="Contoh:&#10;578123456789&#10;578123456790"></textarea>
+            </div>
 
-        <!-- Input Data TikTok Baru -->
-        <div class="card">
-            <h3>2. Data TikTok Baru</h3>
-            <label>Upload File Excel TikTok Baru:</label>
-            <input type="file" id="fileBaru" accept=".xlsx, .xls, .csv">
-            <p style="font-size:0.8rem; color:#94a3b8; margin-top:5px;">
-                "Kita semua sedang HBD, Hari-Hari Butuh Duit"
-            </p>
+            <!-- Input Data TikTok Baru -->
+            <div class="upload-section">
+                <h3>2. Data TikTok Baru</h3>
+                <label>Upload File Excel TikTok Baru:</label>
+                <input type="file" id="fileBaru" accept=".xlsx, .xls, .csv">
+                <p style="font-size:0.8rem; color:#94a3b8; margin-top:5px;">
+                    "Kita semua sedang HBD, Hari-Hari Butuh Duit"
+                </p>
+            </div>
         </div>
     </div>
 
