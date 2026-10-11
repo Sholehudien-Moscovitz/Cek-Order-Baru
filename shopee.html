@@ -26,6 +26,20 @@
             color: var(--text);
             margin: 0;
             padding: 20px;
+            isolation: isolate;
+        }
+
+        body::before {
+            content: "";
+            position: fixed;
+            inset: 0;
+            z-index: -1;
+            background:
+                linear-gradient(rgba(15, 23, 42, 0.7), rgba(15, 23, 42, 0.7)),
+                url("./Pola Batik Ornamen Emas Mewah.png") center / cover no-repeat;
+            filter: blur(1.5px);
+            opacity: 0.8;
+            pointer-events: none;
         }
 
         .container {
