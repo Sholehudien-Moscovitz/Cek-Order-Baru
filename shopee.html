@@ -580,8 +580,6 @@
             const packedRows = readCancelWorkbookSheet(pickingPackedWorkbook, 1);
             const deliveredHeader = deliveredWorkbook ? findMagentoOrderNumberHeader(deliveredRows, 'Delivered') : null;
             const refundHeader = refundWorkbook ? findMagentoOrderNumberHeader(refundRows, 'Refund') : null;
-            const pickingHeader = findMagentoOrderNumberHeader(pickingRows, 'Picking (Sheet 1)');
-            const packedHeader = findMagentoOrderNumberHeader(packedRows, 'Packed (Sheet 2)');
             const omsStatuses = new Map();
             const omsNumberByOrder = new Map();
             const deliveredByOrder = new Map();
@@ -610,21 +608,21 @@
                 addOmsStatus(omsStatuses, orderNumber, 'Refund');
             }
 
-            const addPickingPackedOrders = (rows, header, expectedStatus, omsStatus) => {
-                for (let i = header.rowIndex + 1; i < rows.length; i++) {
+            const addPickingPackedOrders = (rows, statusColumn, expectedStatus, omsStatus) => {
+                for (let i = 0; i < rows.length; i++) {
                     const row = rows[i];
                     if (!row) continue;
                     const orderNumber = normalizeShopeeCancelOrder(row[4]);
                     if (!orderNumber) continue;
-                    const status = normalizeOrderStatus(row[15]);
-                    if (expectedStatus.includes(status)) {
-                        rememberOmsNumber(omsNumberByOrder, orderNumber, row[header.columnIndex]);
+                    const status = normalizeOrderStatus(row[statusColumn]);
+                    if (status === expectedStatus) {
+                        rememberOmsNumber(omsNumberByOrder, orderNumber, row[4]);
                         addOmsStatus(omsStatuses, orderNumber, omsStatus);
                     }
                 }
             };
-            addPickingPackedOrders(pickingRows, pickingHeader, ['picking'], 'Picking');
-            addPickingPackedOrders(packedRows, packedHeader, ['packing', 'packed'], 'Packing');
+            addPickingPackedOrders(pickingRows, 15, 'picking', 'Picking');
+            addPickingPackedOrders(packedRows, 14, 'packed', 'Packed');
 
             const cancelledByOrder = new Map();
             const shopeeRows = readCancelWorkbookSheet(shopeeWorkbook, 0);
