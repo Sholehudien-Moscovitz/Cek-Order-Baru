@@ -356,7 +356,7 @@
                 <input type="file" id="cancelRefundFile" accept=".xlsx, .xls, .csv">
             </div>
             <div>
-                <label for="cancelPickingPackedFile">File Picking & Packed:</label>
+                <label for="cancelPickingPackedFile">File Picking & Packed (Sheet 1: Picking, Sheet 2: Packed):</label>
                 <input type="file" id="cancelPickingPackedFile" accept=".xlsx, .xls">
             </div>
         </div>
@@ -464,7 +464,8 @@
 
             const deliveredRows = deliveredWorkbook ? readWorkbookSheet(deliveredWorkbook, 0) : [];
             const refundRows = refundWorkbook ? readWorkbookSheet(refundWorkbook, 0) : [];
-            const pickingPackedRows = readWorkbookSheet(pickingPackedWorkbook, 0);
+            const pickingRows = readWorkbookSheet(pickingPackedWorkbook, 0);
+            const packedRows = readWorkbookSheet(pickingPackedWorkbook, 1);
             const omsStatuses = new Map();
             const deliveredByOrder = new Map();
 
@@ -490,15 +491,24 @@
                 addOmsStatus(omsStatuses, orderNumber, 'Refund');
             }
 
-            for (let i = 2; i < pickingPackedRows.length; i++) {
-                const row = pickingPackedRows[i];
+            for (let i = 2; i < pickingRows.length; i++) {
+                const row = pickingRows[i];
                 if (!row) continue;
                 const orderNumber = bersihkanOrder(row[4]);
                 if (!orderNumber) continue;
                 const status = normalizeOrderStatus(row[15]);
                 if (status === 'picking') {
                     addOmsStatus(omsStatuses, orderNumber, 'Picking');
-                } else if (status === 'packed') {
+                }
+            }
+
+            for (let i = 2; i < packedRows.length; i++) {
+                const row = packedRows[i];
+                if (!row) continue;
+                const orderNumber = bersihkanOrder(row[4]);
+                if (!orderNumber) continue;
+                const status = normalizeOrderStatus(row[14]);
+                if (status === 'packed') {
                     addOmsStatus(omsStatuses, orderNumber, 'Packed');
                 }
             }
