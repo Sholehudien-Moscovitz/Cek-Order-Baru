@@ -69,6 +69,25 @@
             margin-bottom: 0;
         }
 
+        .view-switcher {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin: 0 0 24px;
+        }
+
+        .view-switcher button {
+            background: #1e293b;
+            border: 1px solid var(--border);
+            color: #cbd5e1;
+        }
+
+        .view-switcher button[aria-pressed="true"] {
+            background: linear-gradient(135deg, var(--secondary), var(--primary));
+            border-color: transparent;
+            color: #fff;
+        }
+
         @media (max-width: 900px) {
             .upload-grid {
                 grid-template-columns: 1fr;
@@ -267,6 +286,11 @@
         }
 
         .hidden { display: none; }
+
+        @media (max-width: 700px) {
+            body { padding: 14px; }
+            .view-switcher button { padding: 10px 16px; }
+        }
     </style>
 </head>
 <body>
@@ -274,6 +298,12 @@
 <div class="container">
     <h1>Cek Order Shopee Multi-Toko</h1>
 
+    <nav class="view-switcher" aria-label="Pilih jenis pengecekan">
+        <button type="button" id="newOrderTab" aria-controls="newOrderView" aria-pressed="true" onclick="switchOrderView('new')">Cek Order Baru</button>
+        <button type="button" id="cancelOrderTab" aria-controls="cancelOrderView" aria-pressed="false" onclick="switchOrderView('cancel')">Cek Order Batal</button>
+    </nav>
+
+    <section id="newOrderView" aria-labelledby="newOrderTab">
     <div class="card upload-manager">
         <div class="upload-grid">
             <!-- Input Data Lama -->
@@ -399,6 +429,55 @@
             </table>
         </div>
     </div>
+    </section>
+
+    <section id="cancelOrderView" class="card hidden" aria-labelledby="cancelCheckTitle">
+        <h2 id="cancelCheckTitle">Cek Order Batal Shopee</h2>
+        <p style="color:#94a3b8;">Silahkan Upload File untuk mencocokkan order yang di Batalkan ^.^</p>
+        <p style="color:#94a3b8; font-size:0.85rem;">"Shopee!"</p>
+        <div class="upload-grid">
+            <div>
+                <label for="cancelShopeeFile">File Shopee:</label>
+                <input type="file" id="cancelShopeeFile" accept=".xlsx, .xls, .csv">
+            </div>
+            <div>
+                <label for="cancelDeliveredFile">File Delivered:</label>
+                <input type="file" id="cancelDeliveredFile" accept=".xlsx, .xls, .csv">
+            </div>
+            <div>
+                <label for="cancelRefundFile">File Refund:</label>
+                <input type="file" id="cancelRefundFile" accept=".xlsx, .xls, .csv">
+            </div>
+            <div>
+                <label for="cancelPickingPackedFile">File Picking & Packing:</label>
+                <input type="file" id="cancelPickingPackedFile" accept=".xlsx, .xls">
+            </div>
+        </div>
+        <div class="btn-container">
+            <button onclick="prosesCekOrderBatal()">PROSES CEK ORDER BATAL</button>
+        </div>
+        <div id="cancelResultPanel" class="hidden">
+            <p id="cancelResultSummary"></p>
+            <div style="text-align:right; margin-bottom:10px;">
+                <button onclick="exportOrderBatalToExcel()">Export Hasil Batal ke Excel</button>
+            </div>
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>NO. ORDER</th>
+                            <th>DELIVERED DATE</th>
+                            <th>DELIVERED TIME</th>
+                            <th>STATUS OMS</th>
+                            <th>STATUS SHOPEE</th>
+                            <th>NAMA GUDANG</th>
+                        </tr>
+                    </thead>
+                    <tbody id="cancelTableBody"></tbody>
+                </table>
+            </div>
+        </div>
+    </section>
 
     <!-- Footer Copyright -->
     <div class="footer-copyright">
@@ -408,6 +487,15 @@
 
 <script>
     let processedData = [];
+    let cancelledOrdersData = [];
+
+    function switchOrderView(view) {
+        const showNewOrders = view === 'new';
+        document.getElementById('newOrderView').classList.toggle('hidden', !showNewOrders);
+        document.getElementById('cancelOrderView').classList.toggle('hidden', showNewOrders);
+        document.getElementById('newOrderTab').setAttribute('aria-pressed', String(showNewOrders));
+        document.getElementById('cancelOrderTab').setAttribute('aria-pressed', String(!showNewOrders));
+    }
 
     function bersihkanOrder(val) {
         if (val === null || val === undefined) return "";
@@ -421,6 +509,218 @@
 
     function normalizeText(value) {
         return String(value || '').trim().toLowerCase();
+    }
+
+    function normalizeOrderStatus(value) {
+        return String(value ?? '').trim().toLowerCase();
+    }
+
+    function normalizeShopeeCancelOrder(value) {
+        return bersihkanOrder(value).slice(0, 14);
+    }
+
+    function isShopeeCancelledStatus(value) {
+        return /(cancel|batal)/i.test(String(value ?? '').trim());
+    }
+
+    function isShopeeSupermarket(value) {
+        return normalizeOrderStatus(value) === 'shopee supermarket';
+    }
+
+    function addOmsStatus(statusMap, orderNumber, status) {
+        if (!statusMap.has(orderNumber)) statusMap.set(orderNumber, new Set());
+        statusMap.get(orderNumber).add(status);
+    }
+
+    async function prosesCekOrderBatal() {
+        const shopeeFile = document.getElementById('cancelShopeeFile').files[0];
+        const deliveredFile = document.getElementById('cancelDeliveredFile').files[0];
+        const refundFile = document.getElementById('cancelRefundFile').files[0];
+        const pickingPackedFile = document.getElementById('cancelPickingPackedFile').files[0];
+        if (!shopeeFile || !pickingPackedFile) {
+            alert('Harap upload file Shopee dan file Picking/Packing.');
+            return;
+        }
+
+        try {
+            const [shopeeWorkbook, deliveredWorkbook, refundWorkbook, pickingPackedWorkbook] = await Promise.all([
+                readCancelWorkbook(shopeeFile),
+                deliveredFile ? readCancelWorkbook(deliveredFile) : Promise.resolve(null),
+                refundFile ? readCancelWorkbook(refundFile) : Promise.resolve(null),
+                readCancelWorkbook(pickingPackedFile)
+            ]);
+
+            const deliveredRows = deliveredWorkbook ? readCancelWorkbookSheet(deliveredWorkbook, 0) : [];
+            const refundRows = refundWorkbook ? readCancelWorkbookSheet(refundWorkbook, 0) : [];
+            const pickingPackedRows = readCancelWorkbookSheet(pickingPackedWorkbook, 0);
+            const omsStatuses = new Map();
+            const deliveredByOrder = new Map();
+
+            for (let i = 1; i < deliveredRows.length; i++) {
+                const row = deliveredRows[i];
+                if (!row || !isShopeeSupermarket(row[11])) continue;
+                const orderNumber = normalizeShopeeCancelOrder(row[2]);
+                if (!orderNumber) continue;
+                if (!deliveredByOrder.has(orderNumber)) {
+                    deliveredByOrder.set(orderNumber, {
+                        date: String(row[5] ?? '').trim() || '-',
+                        time: String(row[6] ?? '').trim() || '-'
+                    });
+                }
+                addOmsStatus(omsStatuses, orderNumber, 'Delivered');
+            }
+
+            for (let i = 1; i < refundRows.length; i++) {
+                const row = refundRows[i];
+                if (!row || !isShopeeSupermarket(row[3])) continue;
+                const orderNumber = normalizeShopeeCancelOrder(row[2]);
+                if (!orderNumber) continue;
+                addOmsStatus(omsStatuses, orderNumber, 'Refund');
+            }
+
+            for (let i = 1; i < pickingPackedRows.length; i++) {
+                const row = pickingPackedRows[i];
+                if (!row) continue;
+                const orderNumber = normalizeShopeeCancelOrder(row[4]);
+                if (!orderNumber) continue;
+                const status = normalizeOrderStatus(row[15]);
+                if (status === 'picking') {
+                    addOmsStatus(omsStatuses, orderNumber, 'Picking');
+                } else if (status === 'packing' || status === 'packed') {
+                    addOmsStatus(omsStatuses, orderNumber, 'Packing');
+                }
+            }
+
+            const cancelledByOrder = new Map();
+            const shopeeRows = readCancelWorkbookSheet(shopeeWorkbook, 0);
+            for (let i = 1; i < shopeeRows.length; i++) {
+                const row = shopeeRows[i];
+                if (!row || !isShopeeCancelledStatus(row[1])) continue;
+                const orderNumber = normalizeShopeeCancelOrder(row[0]);
+                if (!orderNumber) continue;
+
+                const cancelReason = String(row[2] ?? '').trim();
+                const warehouseName = String(row[28] ?? '').trim();
+                if (!cancelledByOrder.has(orderNumber) || (!cancelledByOrder.get(orderNumber).cancelReason && cancelReason)) {
+                    cancelledByOrder.set(orderNumber, {
+                        noOrder: orderNumber,
+                        shopeeStatus: String(row[1] ?? '').trim(),
+                        cancelReason,
+                        warehouseName
+                    });
+                }
+            }
+
+            cancelledOrdersData = [...cancelledByOrder.values()]
+                .filter(order => omsStatuses.has(order.noOrder))
+                .map(order => {
+                    const delivered = deliveredByOrder.get(order.noOrder);
+                    const statuses = omsStatuses.get(order.noOrder);
+                    return {
+                        ...order,
+                        deliveredDate: delivered?.date || '-',
+                        deliveredTime: delivered?.time || '-',
+                        omsStatus: [...statuses].join('; ')
+                    };
+                });
+
+            renderCancelledOrders();
+            document.getElementById('cancelResultPanel').classList.remove('hidden');
+        } catch (error) {
+            console.error('Gagal memproses pengecekan order batal Shopee:', error);
+            alert(`Gagal memproses file order batal: ${error.message}`);
+        }
+    }
+
+    function readCancelWorkbook(file) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = event => {
+                try {
+                    const data = new Uint8Array(event.target.result);
+                    resolve(XLSX.read(data, { type: 'array', raw: false }));
+                } catch (error) {
+                    reject(error);
+                }
+            };
+            reader.onerror = () => reject(reader.error || new Error(`Gagal membaca file ${file.name}.`));
+            reader.readAsArrayBuffer(file);
+        });
+    }
+
+    function readCancelWorkbookSheet(workbook, sheetIndex) {
+        const sheetName = workbook.SheetNames[sheetIndex];
+        if (!sheetName) throw new Error(`Sheet ke-${sheetIndex + 1} tidak ditemukan.`);
+        const sheet = workbook.Sheets[sheetName];
+        return XLSX.utils.sheet_to_json(sheet, { header: 1, raw: false });
+    }
+
+    function renderCancelledOrders() {
+        const tbody = document.getElementById('cancelTableBody');
+        tbody.replaceChildren();
+        document.getElementById('cancelResultSummary').textContent =
+            `Ditemukan ${cancelledOrdersData.length.toLocaleString()} order batal Shopee yang tercatat di data OMS.`;
+
+        if (!cancelledOrdersData.length) {
+            const row = tbody.insertRow();
+            const cell = row.insertCell();
+            cell.colSpan = 6;
+            cell.textContent = 'Tidak ada order batal Shopee yang ditemukan di data OMS.';
+            cell.style.textAlign = 'center';
+            return;
+        }
+
+        cancelledOrdersData.forEach(order => {
+            const row = tbody.insertRow();
+            [
+                order.noOrder,
+                order.deliveredDate,
+                order.deliveredTime,
+                order.omsStatus,
+                order.shopeeStatus,
+                order.warehouseName || '-'
+            ].forEach(value => {
+                row.insertCell().textContent = value;
+            });
+        });
+    }
+
+    function exportOrderBatalToExcel() {
+        if (!cancelledOrdersData.length) {
+            alert('Tidak ada hasil order batal untuk diekspor.');
+            return;
+        }
+
+        const rows = [
+            ['NO. ORDER', 'DELIVERED DATE', 'DELIVERED TIME', 'STATUS OMS', 'STATUS SHOPEE', 'CANCEL REASON', 'NAMA GUDANG'],
+            ...cancelledOrdersData.map(order => [
+                order.noOrder,
+                order.deliveredDate,
+                order.deliveredTime,
+                order.omsStatus,
+                order.shopeeStatus,
+                order.cancelReason || '-',
+                order.warehouseName || '-'
+            ])
+        ];
+        const worksheet = XLSX.utils.aoa_to_sheet(rows);
+        worksheet['!cols'] = [
+            { wch: 24 },
+            { wch: 18 },
+            { wch: 18 },
+            { wch: 40 },
+            { wch: 20 },
+            { wch: 40 },
+            { wch: 28 }
+        ];
+        for (let index = 1; index < rows.length; index++) {
+            const cellAddress = XLSX.utils.encode_cell({ r: index, c: 0 });
+            if (worksheet[cellAddress]) worksheet[cellAddress].z = '@';
+        }
+
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, 'ORDER BATAL SHOPEE');
+        XLSX.writeFile(workbook, 'Hasil_Cek_Order_Batal_Shopee.xlsx');
     }
 
     function readExcel(file) {
