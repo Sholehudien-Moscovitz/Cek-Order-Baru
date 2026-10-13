@@ -466,6 +466,7 @@
                     <thead>
                         <tr>
                             <th>NO. ORDER</th>
+                            <th>NO. OMS</th>
                             <th>DELIVERED DATE</th>
                             <th>DELIVERED TIME</th>
                             <th>STATUS OMS</th>
@@ -519,6 +520,10 @@
         return bersihkanOrder(value).slice(0, 14);
     }
 
+    function normalizeShopeeOmsNumber(value) {
+        return String(value ?? '').replace(/\D/g, '').slice(-9);
+    }
+
     function isShopeeCancelledStatus(value) {
         return /(cancel|batal)/i.test(String(value ?? '').trim());
     }
@@ -530,6 +535,25 @@
     function addOmsStatus(statusMap, orderNumber, status) {
         if (!statusMap.has(orderNumber)) statusMap.set(orderNumber, new Set());
         statusMap.get(orderNumber).add(status);
+    }
+
+    function findMagentoOrderNumberHeader(rows, sourceName) {
+        for (let rowIndex = 0; rowIndex < Math.min(rows.length, 10); rowIndex++) {
+            const headerRow = rows[rowIndex];
+            if (!Array.isArray(headerRow)) continue;
+            const columnIndex = headerRow.findIndex(value =>
+                normalizeOrderStatus(value).replace(/\s+/g, ' ') === 'magento order number'
+            );
+            if (columnIndex !== -1) return { rowIndex, columnIndex };
+        }
+        throw new Error(`Kolom "Magento Order Number" tidak ditemukan pada file ${sourceName}.`);
+    }
+
+    function rememberOmsNumber(omsNumberByOrder, orderNumber, value) {
+        const omsNumber = normalizeShopeeOmsNumber(value);
+        if (omsNumber && !omsNumberByOrder.has(orderNumber)) {
+            omsNumberByOrder.set(orderNumber, omsNumber);
+        }
     }
 
     async function prosesCekOrderBatal() {
@@ -553,14 +577,19 @@
             const deliveredRows = deliveredWorkbook ? readCancelWorkbookSheet(deliveredWorkbook, 0) : [];
             const refundRows = refundWorkbook ? readCancelWorkbookSheet(refundWorkbook, 0) : [];
             const pickingPackedRows = readCancelWorkbookSheet(pickingPackedWorkbook, 0);
+            const deliveredHeader = deliveredWorkbook ? findMagentoOrderNumberHeader(deliveredRows, 'Delivered') : null;
+            const refundHeader = refundWorkbook ? findMagentoOrderNumberHeader(refundRows, 'Refund') : null;
+            const pickingPackedHeader = findMagentoOrderNumberHeader(pickingPackedRows, 'Picking/Packing');
             const omsStatuses = new Map();
+            const omsNumberByOrder = new Map();
             const deliveredByOrder = new Map();
 
-            for (let i = 1; i < deliveredRows.length; i++) {
+            for (let i = deliveredHeader ? deliveredHeader.rowIndex + 1 : 0; i < deliveredRows.length; i++) {
                 const row = deliveredRows[i];
                 if (!row || !isShopeeSupermarket(row[11])) continue;
                 const orderNumber = normalizeShopeeCancelOrder(row[2]);
                 if (!orderNumber) continue;
+                rememberOmsNumber(omsNumberByOrder, orderNumber, row[deliveredHeader.columnIndex]);
                 if (!deliveredByOrder.has(orderNumber)) {
                     deliveredByOrder.set(orderNumber, {
                         date: String(row[5] ?? '').trim() || '-',
@@ -570,23 +599,26 @@
                 addOmsStatus(omsStatuses, orderNumber, 'Delivered');
             }
 
-            for (let i = 1; i < refundRows.length; i++) {
+            for (let i = refundHeader ? refundHeader.rowIndex + 1 : 0; i < refundRows.length; i++) {
                 const row = refundRows[i];
                 if (!row || !isShopeeSupermarket(row[3])) continue;
                 const orderNumber = normalizeShopeeCancelOrder(row[2]);
                 if (!orderNumber) continue;
+                rememberOmsNumber(omsNumberByOrder, orderNumber, row[refundHeader.columnIndex]);
                 addOmsStatus(omsStatuses, orderNumber, 'Refund');
             }
 
-            for (let i = 1; i < pickingPackedRows.length; i++) {
+            for (let i = pickingPackedHeader.rowIndex + 1; i < pickingPackedRows.length; i++) {
                 const row = pickingPackedRows[i];
                 if (!row) continue;
                 const orderNumber = normalizeShopeeCancelOrder(row[4]);
                 if (!orderNumber) continue;
                 const status = normalizeOrderStatus(row[15]);
                 if (status === 'picking') {
+                    rememberOmsNumber(omsNumberByOrder, orderNumber, row[pickingPackedHeader.columnIndex]);
                     addOmsStatus(omsStatuses, orderNumber, 'Picking');
                 } else if (status === 'packing' || status === 'packed') {
+                    rememberOmsNumber(omsNumberByOrder, orderNumber, row[pickingPackedHeader.columnIndex]);
                     addOmsStatus(omsStatuses, orderNumber, 'Packing');
                 }
             }
@@ -618,6 +650,7 @@
                     const statuses = omsStatuses.get(order.noOrder);
                     return {
                         ...order,
+                        omsNumber: omsNumberByOrder.get(order.noOrder) || '-',
                         deliveredDate: delivered?.date || '-',
                         deliveredTime: delivered?.time || '-',
                         omsStatus: [...statuses].join('; ')
@@ -664,7 +697,7 @@
         if (!cancelledOrdersData.length) {
             const row = tbody.insertRow();
             const cell = row.insertCell();
-            cell.colSpan = 6;
+            cell.colSpan = 7;
             cell.textContent = 'Tidak ada order batal Shopee yang ditemukan di data OMS.';
             cell.style.textAlign = 'center';
             return;
@@ -674,6 +707,7 @@
             const row = tbody.insertRow();
             [
                 order.noOrder,
+                order.omsNumber,
                 order.deliveredDate,
                 order.deliveredTime,
                 order.omsStatus,
@@ -692,9 +726,10 @@
         }
 
         const rows = [
-            ['NO. ORDER', 'DELIVERED DATE', 'DELIVERED TIME', 'STATUS OMS', 'STATUS SHOPEE', 'CANCEL REASON', 'NAMA GUDANG'],
+            ['NO. ORDER', 'NO. OMS', 'DELIVERED DATE', 'DELIVERED TIME', 'STATUS OMS', 'STATUS SHOPEE', 'CANCEL REASON', 'NAMA GUDANG'],
             ...cancelledOrdersData.map(order => [
                 order.noOrder,
+                order.omsNumber,
                 order.deliveredDate,
                 order.deliveredTime,
                 order.omsStatus,
@@ -706,6 +741,7 @@
         const worksheet = XLSX.utils.aoa_to_sheet(rows);
         worksheet['!cols'] = [
             { wch: 24 },
+            { wch: 14 },
             { wch: 18 },
             { wch: 18 },
             { wch: 40 },
@@ -714,8 +750,10 @@
             { wch: 28 }
         ];
         for (let index = 1; index < rows.length; index++) {
-            const cellAddress = XLSX.utils.encode_cell({ r: index, c: 0 });
-            if (worksheet[cellAddress]) worksheet[cellAddress].z = '@';
+            for (const column of [0, 1]) {
+                const cellAddress = XLSX.utils.encode_cell({ r: index, c: column });
+                if (worksheet[cellAddress]) worksheet[cellAddress].z = '@';
+            }
         }
 
         const workbook = XLSX.utils.book_new();
