@@ -356,7 +356,7 @@
                 <input type="file" id="cancelRefundFile" accept=".xlsx, .xls, .csv">
             </div>
             <div>
-                <label for="cancelPickingPackedFile">File Picking & Packed:</label>
+                <label for="cancelPickingPackedFile">File Picking & Packed (Sheet 1, status kolom P):</label>
                 <input type="file" id="cancelPickingPackedFile" accept=".xlsx, .xls">
             </div>
         </div>
@@ -464,10 +464,7 @@
 
             const deliveredRows = deliveredWorkbook ? readWorkbookSheet(deliveredWorkbook, 0) : [];
             const refundRows = refundWorkbook ? readWorkbookSheet(refundWorkbook, 0) : [];
-            const pickingRows = readWorkbookSheet(pickingPackedWorkbook, 0);
-            const packedRows = pickingPackedWorkbook.SheetNames.length > 1
-                ? readWorkbookSheet(pickingPackedWorkbook, 1)
-                : [];
+            const pickingPackedRows = readWorkbookSheet(pickingPackedWorkbook, 0);
             const omsStatuses = new Map();
             const deliveredByOrder = new Map();
 
@@ -493,19 +490,18 @@
                 addOmsStatus(omsStatuses, orderNumber, 'Refund');
             }
 
-            [
-                { rows: pickingRows, label: 'Picking' },
-                { rows: packedRows, label: 'Packed' }
-            ].forEach(({ rows, label }) => {
-                for (let i = 2; i < rows.length; i++) {
-                    const row = rows[i];
-                    if (!row) continue;
-                    const orderNumber = bersihkanOrder(row[4]);
-                    if (!orderNumber) continue;
-                    const status = String(row[15] ?? '').trim();
-                    addOmsStatus(omsStatuses, orderNumber, status ? `${label}: ${status}` : label);
+            for (let i = 2; i < pickingPackedRows.length; i++) {
+                const row = pickingPackedRows[i];
+                if (!row) continue;
+                const orderNumber = bersihkanOrder(row[4]);
+                if (!orderNumber) continue;
+                const status = normalizeOrderStatus(row[15]);
+                if (status === 'picking') {
+                    addOmsStatus(omsStatuses, orderNumber, 'Picking');
+                } else if (status === 'packed') {
+                    addOmsStatus(omsStatuses, orderNumber, 'Packed');
                 }
-            });
+            }
 
             const cancelledByOrder = new Map();
             const tiktokRows = readWorkbookSheet(tiktokWorkbook, 0);
