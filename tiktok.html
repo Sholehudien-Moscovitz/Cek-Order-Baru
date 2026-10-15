@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Cek Order TikTok Baru</title>
     <!-- SheetJS CDN untuk membaca & membuat file Excel -->
-    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.min.js"></script>
     <style>
         :root {
             --primary: #00f2fe;
@@ -434,6 +434,11 @@
         return /(cancel|batal)/i.test(String(value ?? '').trim());
     }
 
+    function isTikTokDeliveryStatus(value) {
+        const status = normalizeOrderStatus(value);
+        return /terkirim|sedang dikirim|selesai|shipped|in transit|completed/.test(status);
+    }
+
     function isTikTokCustomerGroup(value) {
         const customerGroup = normalizeOrderStatus(value);
         return customerGroup === 'tiktok' || customerGroup === 'tokopedia supermarket';
@@ -517,12 +522,16 @@
             const tiktokRows = readWorkbookSheet(tiktokWorkbook, 0);
             for (let i = 2; i < tiktokRows.length; i++) {
                 const row = tiktokRows[i];
-                if (!row || !isTikTokCancelledStatus(row[1])) continue;
+                if (!row || (!isTikTokCancelledStatus(row[1]) && !isTikTokDeliveryStatus(row[1]))) continue;
                 const orderNumber = bersihkanOrder(row[0]);
                 if (!orderNumber) continue;
 
                 const cancelReason = String(row[36] ?? '').trim();
                 const warehouseName = String(row[38] ?? '').trim();
+                const isDeliveryStatus = isTikTokDeliveryStatus(row[1]);
+                const omsStatus = omsStatuses.get(orderNumber);
+                const isInPickingOrPacked = omsStatus && (omsStatus.has('Picking') || omsStatus.has('Packed'));
+                if (isDeliveryStatus && !isInPickingOrPacked) continue;
                 if (!cancelledByOrder.has(orderNumber) || (!cancelledByOrder.get(orderNumber).cancelReason && cancelReason)) {
                     cancelledByOrder.set(orderNumber, {
                         noOrder: orderNumber,
@@ -581,13 +590,13 @@
         const tbody = document.getElementById('cancelTableBody');
         tbody.replaceChildren();
         document.getElementById('cancelResultSummary').textContent =
-            `Ditemukan ${cancelledOrdersData.length.toLocaleString()} order batal TikTok yang tercatat di data OMS.`;
+            `Ditemukan ${cancelledOrdersData.length.toLocaleString()} order batal atau berstatus pengiriman TikTok yang tercatat di data OMS.`;
 
         if (!cancelledOrdersData.length) {
             const row = tbody.insertRow();
             const cell = row.insertCell();
             cell.colSpan = 6;
-            cell.textContent = 'Tidak ada order batal TikTok yang ditemukan di data OMS.';
+            cell.textContent = 'Tidak ada order batal atau berstatus pengiriman TikTok yang ditemukan di data OMS.';
             cell.style.textAlign = 'center';
             return;
         }
@@ -601,8 +610,15 @@
                 order.omsStatus,
                 order.tiktokStatus,
                 order.warehouseName || '-'
-            ].forEach(value => {
-                row.insertCell().textContent = value;
+            ].forEach((value, index) => {
+                const cell = row.insertCell();
+                if (index === 4 && isTikTokDeliveryStatus(order.tiktokStatus)) {
+                    const statusText = document.createElement('strong');
+                    statusText.textContent = value;
+                    cell.appendChild(statusText);
+                } else {
+                    cell.textContent = value;
+                }
             });
         });
     }
@@ -638,6 +654,11 @@
         for (let index = 1; index < rows.length; index++) {
             const cellAddress = XLSX.utils.encode_cell({ r: index, c: 0 });
             if (worksheet[cellAddress]) worksheet[cellAddress].z = '@';
+
+            const statusAddress = XLSX.utils.encode_cell({ r: index, c: 4 });
+            if (worksheet[statusAddress] && isTikTokDeliveryStatus(rows[index][4])) {
+                worksheet[statusAddress].s = { font: { bold: true } };
+            }
         }
 
         const workbook = XLSX.utils.book_new();
