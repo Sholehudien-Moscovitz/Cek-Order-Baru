@@ -436,7 +436,7 @@
 
     function isTikTokDeliveryStatus(value) {
         const status = normalizeOrderStatus(value);
-        return /terkirim|sedang dikirim|selesai|shipped|in transit|completed/.test(status);
+        return /\bdikirim\b|terkirim|selesai|shipped|in transit|completed/.test(status);
     }
 
     function isTikTokCustomerGroup(value) {
@@ -530,8 +530,8 @@
                 const warehouseName = String(row[38] ?? '').trim();
                 const isDeliveryStatus = isTikTokDeliveryStatus(row[1]);
                 const omsStatus = omsStatuses.get(orderNumber);
-                const isInPickingOrPacked = omsStatus && (omsStatus.has('Picking') || omsStatus.has('Packed'));
-                if (isDeliveryStatus && !isInPickingOrPacked) continue;
+                const isInPicking = omsStatus?.has('Picking');
+                if (isDeliveryStatus && !isInPicking) continue;
                 if (!cancelledByOrder.has(orderNumber) || (!cancelledByOrder.get(orderNumber).cancelReason && cancelReason)) {
                     cancelledByOrder.set(orderNumber, {
                         noOrder: orderNumber,
