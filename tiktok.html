@@ -642,6 +642,17 @@
             ])
         ];
         const worksheet = XLSX.utils.aoa_to_sheet(rows);
+        const headerRange = XLSX.utils.decode_range(worksheet['!ref']);
+        for (let column = headerRange.s.c; column <= headerRange.e.c; column++) {
+            const cellAddress = XLSX.utils.encode_cell({ r: 0, c: column });
+            if (worksheet[cellAddress]) {
+                worksheet[cellAddress].s = {
+                    fill: { fgColor: { rgb: '4FACFE' } },
+                    font: { bold: true, color: { rgb: '000000' }, name: 'Calibri', sz: 11 },
+                    alignment: { horizontal: 'center', vertical: 'center' }
+                };
+            }
+        }
         worksheet['!cols'] = [
             { wch: 24 },
             { wch: 18 },
