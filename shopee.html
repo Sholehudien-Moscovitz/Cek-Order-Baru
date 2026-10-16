@@ -532,6 +532,12 @@
         return /(cancel|batal)/i.test(String(value ?? '').trim());
     }
 
+    function isShopeeDeliveryStatus(value) {
+        const status = normalizeOrderStatus(value).replace(/\s+/g, ' ');
+        return ['selesai', 'sedang dikirim', 'telah dikirim'].includes(status) ||
+            status.includes('pesanan diterima, namun pembeli masih dapat mengajukan pengembalian');
+    }
+
     function isShopeeSupermarket(value) {
         return normalizeOrderStatus(value) === 'shopee supermarket';
     }
@@ -632,11 +638,19 @@
             const shopeeRows = readCancelWorkbookSheet(shopeeWorkbook, 0);
             for (let i = 1; i < shopeeRows.length; i++) {
                 const row = shopeeRows[i];
-                if (!row || !isShopeeCancelledStatus(row[1])) continue;
+                if (!row) continue;
+                const isCancelled = isShopeeCancelledStatus(row[1]);
+                const isDelivery = isShopeeDeliveryStatus(row[1]);
+                if (!isCancelled && !isDelivery) continue;
+
                 const orderNumber = normalizeShopeeOrder(row[0]);
                 if (!orderNumber) continue;
 
-                const cancelReason = String(row[2] ?? '').trim();
+                const omsStatus = omsStatuses.get(orderNumber);
+                const isInPickingOrPacked = omsStatus && (omsStatus.has('Picking') || omsStatus.has('Packed'));
+                if (isDelivery && !isInPickingOrPacked) continue;
+
+                const cancelReason = isCancelled ? String(row[2] ?? '').trim() : '';
                 const warehouseName = String(row[28] ?? '').trim();
                 if (!cancelledByOrder.has(orderNumber) || (!cancelledByOrder.get(orderNumber).cancelReason && cancelReason)) {
                     cancelledByOrder.set(orderNumber, {
@@ -697,13 +711,13 @@
         const tbody = document.getElementById('cancelTableBody');
         tbody.replaceChildren();
         document.getElementById('cancelResultSummary').textContent =
-            `Ditemukan ${cancelledOrdersData.length.toLocaleString()} order batal Shopee yang tercatat di data OMS.`;
+            `Ditemukan ${cancelledOrdersData.length.toLocaleString()} order batal atau berstatus pengiriman Shopee yang cocok dengan data OMS.`;
 
         if (!cancelledOrdersData.length) {
             const row = tbody.insertRow();
             const cell = row.insertCell();
             cell.colSpan = 7;
-            cell.textContent = 'Tidak ada order batal Shopee yang ditemukan di data OMS.';
+            cell.textContent = 'Tidak ada order batal atau berstatus pengiriman Shopee yang cocok dengan data OMS.';
             cell.style.textAlign = 'center';
             return;
         }
