@@ -436,7 +436,7 @@
 
     function isTikTokDeliveryStatus(value) {
         const status = normalizeOrderStatus(value);
-        return /\bdikirim\b|terkirim|selesai|shipped|in transit|completed/.test(status);
+        return ['dikirim', 'sedang dikirim', 'selesai'].includes(status);
     }
 
     function isTikTokCustomerGroup(value) {
