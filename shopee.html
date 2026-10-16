@@ -520,7 +520,7 @@
         return String(value ?? '').trim().toLowerCase();
     }
 
-    function normalizeShopeeCancelOrder(value) {
+    function normalizeShopeeOrder(value) {
         return bersihkanOrder(value).slice(0, 14);
     }
 
@@ -591,7 +591,7 @@
             for (let i = deliveredHeader ? deliveredHeader.rowIndex + 1 : 0; i < deliveredRows.length; i++) {
                 const row = deliveredRows[i];
                 if (!row || !isShopeeSupermarket(row[11])) continue;
-                const orderNumber = normalizeShopeeCancelOrder(row[2]);
+                const orderNumber = normalizeShopeeOrder(row[2]);
                 if (!orderNumber) continue;
                 rememberOmsNumber(omsNumberByOrder, orderNumber, row[deliveredHeader.columnIndex]);
                 if (!deliveredByOrder.has(orderNumber)) {
@@ -606,7 +606,7 @@
             for (let i = refundHeader ? refundHeader.rowIndex + 1 : 0; i < refundRows.length; i++) {
                 const row = refundRows[i];
                 if (!row || !isShopeeSupermarket(row[3])) continue;
-                const orderNumber = normalizeShopeeCancelOrder(row[2]);
+                const orderNumber = normalizeShopeeOrder(row[2]);
                 if (!orderNumber) continue;
                 rememberOmsNumber(omsNumberByOrder, orderNumber, row[refundHeader.columnIndex]);
                 addOmsStatus(omsStatuses, orderNumber, 'Refund');
@@ -616,7 +616,7 @@
                 for (let i = 0; i < rows.length; i++) {
                     const row = rows[i];
                     if (!row) continue;
-                    const orderNumber = normalizeShopeeCancelOrder(row[4]);
+                    const orderNumber = normalizeShopeeOrder(row[4]);
                     if (!orderNumber) continue;
                     const status = normalizeOrderStatus(row[statusColumn]);
                     if (status === expectedStatus) {
@@ -633,7 +633,7 @@
             for (let i = 1; i < shopeeRows.length; i++) {
                 const row = shopeeRows[i];
                 if (!row || !isShopeeCancelledStatus(row[1])) continue;
-                const orderNumber = normalizeShopeeCancelOrder(row[0]);
+                const orderNumber = normalizeShopeeOrder(row[0]);
                 if (!orderNumber) continue;
 
                 const cancelReason = String(row[2] ?? '').trim();
@@ -902,7 +902,7 @@
         if (textLamaInput.trim() !== "") {
             const lines = textLamaInput.split('\n');
             lines.forEach(line => {
-                const cleaned = bersihkanOrder(line);
+                const cleaned = normalizeShopeeOrder(line);
                 if (cleaned) dictLama.add(cleaned);
             });
         }
@@ -911,7 +911,7 @@
             try {
                 const dataLama = await readExcel(fileLamaInput.files[0]);
                 dataLama.forEach(row => {
-                    const noOrder = bersihkanOrder(row[0]);
+                    const noOrder = normalizeShopeeOrder(row[0]);
                     if (noOrder) dictLama.add(noOrder);
                 });
             } catch (e) {
@@ -967,7 +967,7 @@
 
                         for (let i = 1; i < dataBaru.length; i++) {
                             const row = dataBaru[i];
-                            const noOrder = bersihkanOrder(row[idxNoOrder]);
+                            const noOrder = normalizeShopeeOrder(row[idxNoOrder]);
 
                             if (noOrder && !dictOrderShopee.has(noOrder)) {
                                 dictOrderShopee.add(noOrder);
