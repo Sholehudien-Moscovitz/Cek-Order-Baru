@@ -319,7 +319,7 @@
                 <textarea id="textLama" rows="8" style="width:100%; background:#0f172a; border:1px solid var(--border); color:#fff; border-radius:6px; padding:8px; box-sizing:border-box; font-size:0.85rem;" placeholder="Contoh:&#10;231121ABC1234&#10;231121XYZ5678"></textarea>
             </div>
 
-            <!-- Input Data Shopee Baru (6 Slot Toko) -->
+            <!-- Input Data Shopee Baru (8 Slot Toko) -->
             <div class="upload-section">
                 <h3>2. Data Shopee Baru (Upload Per Toko)</h3>
                 <p style="font-size:0.8rem; color:#94a3b8; margin-bottom: 12px;">
@@ -339,25 +339,37 @@
                         <input type="file" id="fileHeloskin" accept=".xlsx, .xls, .csv">
                     </div>
 
-                    <!-- 3. Shopee Mom&Baby -->
+                    <!-- 3. Shopee NRG -->
+                    <div class="shopee-item">
+                        <span>Shopee NRG</span>
+                        <input type="file" id="fileNRG" accept=".xlsx, .xls, .csv">
+                    </div>
+
+                    <!-- 4. Shopee Liquid -->
+                    <div class="shopee-item">
+                        <span>Shopee Liquid</span>
+                        <input type="file" id="fileLiquid" accept=".xlsx, .xls, .csv">
+                    </div>
+
+                    <!-- 5. Shopee Mom&Baby -->
                     <div class="shopee-item">
                         <span>Shopee Mom&Baby</span>
                         <input type="file" id="fileMomBaby" accept=".xlsx, .xls, .csv">
                     </div>
 
-                    <!-- 4. Shopee YOA -->
+                    <!-- 6. Shopee YOA -->
                     <div class="shopee-item">
                         <span>Shopee YOA</span>
                         <input type="file" id="fileYOA" accept=".xlsx, .xls, .csv">
                     </div>
 
-                    <!-- 5. Shopee Fashion -->
+                    <!-- 7. Shopee Fashion -->
                     <div class="shopee-item">
                         <span>Shopee Fashion</span>
                         <input type="file" id="fileFashion" accept=".xlsx, .xls, .csv">
                     </div>
 
-                    <!-- 6. Shopee YOEL -->
+                    <!-- 8. Shopee YOEL -->
                     <div class="shopee-item">
                         <span>Shopee YOEL</span>
                         <input type="file" id="fileYOEL" accept=".xlsx, .xls, .csv">
@@ -906,6 +918,8 @@
         const tokoList = [
             { id: 'fileSPM', namaToko: 'Shopee SPM' },
             { id: 'fileHeloskin', namaToko: 'Shopee Heloskin' },
+            { id: 'fileNRG', namaToko: 'Shopee NRG' },
+            { id: 'fileLiquid', namaToko: 'Shopee Liquid' },
             { id: 'fileMomBaby', namaToko: 'Shopee Mom&Baby' },
             { id: 'fileYOA', namaToko: 'Shopee YOA' },
             { id: 'fileFashion', namaToko: 'Shopee Fashion' },
