@@ -914,12 +914,13 @@
     }
 
     function buildWhatsAppTemplate(rows) {
-        return [...groupTikTokTemplateOrders(rows).values()].map(group => [
-            'Info pak/bu, order tiktok baru berikut :',
+        const templateGroups = [...groupTikTokTemplateOrders(rows).values()];
+        return templateGroups.map((group, index) => [
+            ...(index === 0 ? ['Info pak/bu, order tiktok baru berikut :'] : []),
             `* Order masuk : ${group.dateText} ${group.timeTag}`,
             ...group.orders.map(item => item.noOrder),
-            'terima kasih.'
-        ].join('\n')).join('\n\n');
+            ...(index === templateGroups.length - 1 ? ['terima kasih.'] : [])
+        ].join('\n')).join('\n');
     }
 
     function openWhatsAppTemplate() {
@@ -1005,12 +1006,15 @@
         });
 
         if (withTemplate) {
-            groupTikTokTemplateOrders(rows).forEach(group => {
-                wsData.push(['']);
-                wsData.push(['Info pak/bu, order tiktok baru berikut :']);
+            const templateGroups = [...groupTikTokTemplateOrders(rows).values()];
+            templateGroups.forEach((group, index) => {
+                if (index === 0) {
+                    wsData.push(['']);
+                    wsData.push(['Info pak/bu, order tiktok baru berikut :']);
+                }
                 wsData.push([`* Order masuk : ${group.dateText} ${group.timeTag}`]);
                 group.orders.forEach(item => wsData.push([item.noOrder]));
-                wsData.push(['terima kasih.']);
+                if (index === templateGroups.length - 1) wsData.push(['terima kasih.']);
             });
         }
 

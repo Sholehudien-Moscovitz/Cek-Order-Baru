@@ -1086,9 +1086,9 @@
     }
 
     function buildWhatsAppTemplate(rows) {
-        const templateGroups = groupTemplateOrders(rows);
+        const templateGroups = [...groupTemplateOrders(rows).values()];
 
-        return [...templateGroups.values()].map(group => {
+        return templateGroups.map((group, index) => {
             const orderLines = group.orders.map(item => {
                 const extraInfo = String(item.namaGudang).trim().toUpperCase() === 'YOS STREAMVERSE'
                     ? `\n${item.asalToko}`
@@ -1096,13 +1096,13 @@
                 return `${item.noOrder}${extraInfo}`;
             });
             return [
-                'Info pak/bu, order shopee baru berikut :',
+                ...(index === 0 ? ['Info pak/bu, order shopee baru berikut :'] : []),
                 `* Order masuk : ${group.orderDateText} ${group.timeTag}`,
                 `* Batas Kirim : ${group.kirimRange} 23:59`,
                 ...orderLines,
-                'terima kasih.'
+                ...(index === templateGroups.length - 1 ? ['terima kasih.'] : [])
             ].join('\n');
-        }).join('\n\n');
+        }).join('\n');
     }
 
     function openWhatsAppTemplate() {
@@ -1233,11 +1233,13 @@
         });
 
         if (withTemplate) {
-            const templateGroups = groupTemplateOrders(rows);
+            const templateGroups = [...groupTemplateOrders(rows).values()];
 
-            templateGroups.forEach(group => {
-                wsData.push(['']);
-                wsData.push(['Info pak/bu, order shopee baru berikut :']);
+            templateGroups.forEach((group, index) => {
+                if (index === 0) {
+                    wsData.push(['']);
+                    wsData.push(['Info pak/bu, order shopee baru berikut :']);
+                }
                 wsData.push([`* Order masuk : ${group.orderDateText} ${group.timeTag}`]);
                 wsData.push([`* Batas Kirim : ${group.kirimRange} 23:59`]);
                 group.orders.forEach(item => {
@@ -1247,7 +1249,7 @@
                     }
                     wsData.push(orderRow);
                 });
-                wsData.push(['terima kasih.']);
+                if (index === templateGroups.length - 1) wsData.push(['terima kasih.']);
             });
         }
 
