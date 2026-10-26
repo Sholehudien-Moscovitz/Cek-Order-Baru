@@ -915,8 +915,12 @@
 
     function buildWhatsAppTemplate(rows) {
         const templateGroups = [...groupTikTokTemplateOrders(rows).values()];
+        const isDcStreamverse = String(rows[0]?.namaCabang || '').trim().toUpperCase() === 'DC STREAMVERSE';
+        const greeting = isDcStreamverse
+            ? 'Berikut info order shopee baru :'
+            : 'Info pak/bu, order tiktok baru berikut :';
         return templateGroups.map((group, index) => [
-            ...(index === 0 ? ['Info pak/bu, order tiktok baru berikut :'] : []),
+            ...(index === 0 ? [greeting] : []),
             `* Order masuk : ${group.dateText} ${group.timeTag}`,
             ...group.orders.map(item => item.noOrder),
             ...(index === templateGroups.length - 1 ? ['terima kasih.'] : [])
@@ -1007,10 +1011,14 @@
 
         if (withTemplate) {
             const templateGroups = [...groupTikTokTemplateOrders(rows).values()];
+            const isDcStreamverse = String(rows[0]?.namaCabang || '').trim().toUpperCase() === 'DC STREAMVERSE';
+            const greeting = isDcStreamverse
+                ? 'Berikut info order shopee baru :'
+                : 'Info pak/bu, order tiktok baru berikut :';
             templateGroups.forEach((group, index) => {
                 if (index === 0) {
                     wsData.push(['']);
-                    wsData.push(['Info pak/bu, order tiktok baru berikut :']);
+                    wsData.push([greeting]);
                 }
                 wsData.push([`* Order masuk : ${group.dateText} ${group.timeTag}`]);
                 group.orders.forEach(item => wsData.push([item.noOrder]));

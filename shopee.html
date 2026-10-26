@@ -1087,6 +1087,10 @@
 
     function buildWhatsAppTemplate(rows) {
         const templateGroups = [...groupTemplateOrders(rows).values()];
+        const isYosStreamverse = String(rows[0]?.namaGudang || '').trim().toUpperCase() === 'YOS STREAMVERSE';
+        const greeting = isYosStreamverse
+            ? 'Berikut info order shopee baru :'
+            : 'Info pak/bu, order shopee baru berikut :';
 
         return templateGroups.map((group, index) => {
             const orderLines = group.orders.map(item => {
@@ -1096,7 +1100,7 @@
                 return `${item.noOrder}${extraInfo}`;
             });
             return [
-                ...(index === 0 ? ['Info pak/bu, order shopee baru berikut :'] : []),
+                ...(index === 0 ? [greeting] : []),
                 `* Order masuk : ${group.orderDateText} ${group.timeTag}`,
                 `* Batas Kirim : ${group.kirimRange} 23:59`,
                 ...orderLines,
@@ -1234,11 +1238,15 @@
 
         if (withTemplate) {
             const templateGroups = [...groupTemplateOrders(rows).values()];
+            const isYosStreamverse = String(rows[0]?.namaGudang || '').trim().toUpperCase() === 'YOS STREAMVERSE';
+            const greeting = isYosStreamverse
+                ? 'Berikut info order shopee baru :'
+                : 'Info pak/bu, order shopee baru berikut :';
 
             templateGroups.forEach((group, index) => {
                 if (index === 0) {
                     wsData.push(['']);
-                    wsData.push(['Info pak/bu, order shopee baru berikut :']);
+                    wsData.push([greeting]);
                 }
                 wsData.push([`* Order masuk : ${group.orderDateText} ${group.timeTag}`]);
                 wsData.push([`* Batas Kirim : ${group.kirimRange} 23:59`]);
