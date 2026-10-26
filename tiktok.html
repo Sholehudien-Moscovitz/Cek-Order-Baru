@@ -923,7 +923,7 @@
             ...(index === 0 ? [greeting] : []),
             `* Order masuk : ${group.dateText} ${group.timeTag}`,
             ...group.orders.map(item => item.noOrder),
-            ...(index === templateGroups.length - 1 ? ['terima kasih.'] : [])
+            ...(index === templateGroups.length - 1 ? ['', 'terima kasih'] : [])
         ].join('\n')).join('\n');
     }
 
@@ -1022,7 +1022,10 @@
                 }
                 wsData.push([`* Order masuk : ${group.dateText} ${group.timeTag}`]);
                 group.orders.forEach(item => wsData.push([item.noOrder]));
-                if (index === templateGroups.length - 1) wsData.push(['terima kasih.']);
+                if (index === templateGroups.length - 1) {
+                    wsData.push(['']);
+                    wsData.push(['terima kasih']);
+                }
             });
         }
 
