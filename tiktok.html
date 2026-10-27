@@ -140,6 +140,49 @@
             transform: translateY(-1px);
         }
 
+        .results-toolbar {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto;
+            grid-template-areas:
+                "search ."
+                "filters actions";
+            gap: 8px 12px;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .toolbar-search-row,
+        .toolbar-filters,
+        .toolbar-actions {
+            display: flex;
+            align-items: center;
+        }
+
+        .toolbar-search-row {
+            grid-area: search;
+            gap: 8px;
+            min-width: 0;
+        }
+
+        .toolbar-search-row input {
+            flex: 0 1 300px;
+            max-width: 100%;
+            margin-bottom: 0;
+        }
+
+        .toolbar-filters {
+            grid-area: filters;
+            gap: 8px;
+            min-width: 0;
+        }
+
+        .toolbar-actions {
+            grid-area: actions;
+            justify-self: end;
+            gap: 8px;
+            flex-wrap: nowrap;
+        }
+
         .summary-grid {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
@@ -234,10 +277,27 @@
 
         .hidden { display: none; }
 
+        @media (max-width: 900px) {
+            .results-toolbar {
+                grid-template-columns: minmax(0, 1fr);
+                grid-template-areas:
+                    "search"
+                    "filters"
+                    "actions";
+            }
+
+            .toolbar-actions {
+                justify-self: start;
+            }
+        }
+
         @media (max-width: 700px) {
             body { padding: 14px; }
             .upload-grid { grid-template-columns: 1fr; }
             .view-switcher button { padding: 10px 16px; }
+            .toolbar-filters,
+            .toolbar-actions { flex-wrap: wrap; }
+            .toolbar-search-row input { flex: 1 1 180px; }
         }
     </style>
 </head>
@@ -296,9 +356,12 @@
         </div>
     </div>
 
-    <div style="margin-bottom: 10px; display: flex; flex-wrap: wrap; gap: 10px; justify-content: space-between; align-items: center;">
-        <div style="display: flex; flex-wrap: wrap; gap: 8px; align-items: center; flex: 1; min-width: 260px;">
+    <div class="results-toolbar">
+        <div class="toolbar-search-row">
             <input type="text" id="searchInput" onkeyup="applyFilters()" placeholder="Cari No Order / Cabang / Status..." style="width: 300px; margin-bottom: 0;">
+            <button onclick="resetFilters()" style="padding: 8px 16px; font-size: 0.9rem; background: #475569; color: #fff;">Reset</button>
+        </div>
+        <div class="toolbar-filters">
             <select id="statusFilter" onchange="applyFilters()" style="padding: 8px; background-color: #0f172a; border: 1px solid var(--border); border-radius: 6px; color: #fff;">
                 <option value="all">Semua Status</option>
                 <option value="SUDAH INFO">SUDAH INFO</option>
@@ -309,12 +372,11 @@
                 <option value="time-oldest">Waktu Pesanan Lama</option>
             </select>
         </div>
-        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+        <div class="toolbar-actions">
             <select id="whatsappSheetSelect" aria-label="Pilih sheet untuk pesan WhatsApp" style="padding: 8px; background-color: #0f172a; border: 1px solid var(--border); border-radius: 6px; color: #fff;">
                 <option value="">Pilih cabang</option>
             </select>
             <button onclick="openWhatsAppTemplate()" style="padding: 8px 16px; font-size: 0.9rem; background: linear-gradient(135deg, #16a34a, #15803d);">Buka WhatsApp</button>
-            <button onclick="resetFilters()" style="padding: 8px 16px; font-size: 0.9rem; background: #475569; color: #fff;">Reset</button>
             <button onclick="exportToExcel()" style="padding: 8px 16px; font-size: 0.9rem;">Export Hasil ke Excel</button>
         </div>
     </div>

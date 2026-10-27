@@ -185,6 +185,49 @@
             transform: translateY(-1px);
         }
 
+        .results-toolbar {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto;
+            grid-template-areas:
+                "search ."
+                "filters actions";
+            gap: 8px 12px;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .toolbar-search-row,
+        .toolbar-filters,
+        .toolbar-actions {
+            display: flex;
+            align-items: center;
+        }
+
+        .toolbar-search-row {
+            grid-area: search;
+            gap: 10px;
+            min-width: 0;
+        }
+
+        .toolbar-search-row input {
+            flex: 0 1 350px;
+            max-width: 100%;
+            margin-bottom: 0;
+        }
+
+        .toolbar-filters {
+            grid-area: filters;
+            gap: 10px;
+            min-width: 0;
+        }
+
+        .toolbar-actions {
+            grid-area: actions;
+            justify-self: end;
+            gap: 10px;
+            flex-wrap: nowrap;
+        }
+
         .summary-grid {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
@@ -296,9 +339,26 @@
 
         .hidden { display: none; }
 
+        @media (max-width: 900px) {
+            .results-toolbar {
+                grid-template-columns: minmax(0, 1fr);
+                grid-template-areas:
+                    "search"
+                    "filters"
+                    "actions";
+            }
+
+            .toolbar-actions {
+                justify-self: start;
+            }
+        }
+
         @media (max-width: 700px) {
             body { padding: 14px; }
             .view-switcher button { padding: 10px 16px; }
+            .toolbar-filters,
+            .toolbar-actions { flex-wrap: wrap; }
+            .toolbar-search-row input { flex: 1 1 180px; }
         }
     </style>
 </head>
@@ -405,9 +465,12 @@
             </div>
         </div>
 
-        <div class="toolbar" style="margin-bottom: 15px; display: flex; flex-wrap: wrap; gap: 10px; justify-content: space-between; align-items: center;">
-            <div style="display: flex; flex-wrap: wrap; gap: 10px; align-items: center; flex: 1; min-width: 260px;">
+        <div class="toolbar results-toolbar">
+            <div class="toolbar-search-row">
                 <input type="text" id="searchInput" onkeyup="applyFilters()" placeholder="Cari No Order / Toko / Gudang / Status..." style="width: min(350px, 100%); margin-bottom: 0;">
+                <button id="resetBtn" onclick="resetFilters()" style="padding: 10px 18px; font-size: 0.9rem; background: linear-gradient(135deg, #64748b, #475569); box-shadow: 0 4px 10px rgba(100, 116, 139, 0.2);">Reset</button>
+            </div>
+            <div class="toolbar-filters">
                 <select id="statusFilter" onchange="applyFilters()" style="width: 170px; margin-bottom: 0; background:#0f172a; color:white; border:1px solid var(--border); border-radius:6px; padding:8px;">
                     <option value="all">Semua Status</option>
                     <option value="SUDAH INFO">SUDAH INFO</option>
@@ -418,12 +481,11 @@
                     <option value="time-oldest">Waktu Pesanan Lama</option>
                 </select>
             </div>
-            <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+            <div class="toolbar-actions">
                 <select id="whatsappSheetSelect" aria-label="Pilih sheet untuk pesan WhatsApp" style="padding: 10px; background:#0f172a; color:white; border:1px solid var(--border); border-radius:6px;">
                     <option value="">Pilih gudang</option>
                 </select>
                 <button onclick="openWhatsAppTemplate()" style="padding: 10px 18px; font-size: 0.9rem; background: linear-gradient(135deg, #16a34a, #15803d); box-shadow: 0 4px 10px rgba(21, 128, 61, 0.2);">Buka WhatsApp</button>
-                <button id="resetBtn" onclick="resetFilters()" style="padding: 10px 18px; font-size: 0.9rem; background: linear-gradient(135deg, #64748b, #475569); box-shadow: 0 4px 10px rgba(100, 116, 139, 0.2);">Reset</button>
                 <button onclick="exportToExcel()" style="padding: 10px 20px; font-size: 0.9rem;">Export Excel</button>
             </div>
         </div>
