@@ -305,12 +305,8 @@
                 <option value="BELUM INFO">BELUM INFO</option>
             </select>
             <select id="sortSelect" onchange="applyFilters()" style="padding: 8px; background-color: #0f172a; border: 1px solid var(--border); border-radius: 6px; color: #fff;">
-                <option value="order-asc">No Order A-Z</option>
-                <option value="order-desc">No Order Z-A</option>
-                <option value="status-desc">Status: Sudah Info dahulu</option>
-                <option value="status-asc">Status: Belum Info dahulu</option>
-                <option value="time-newest">Waktu Pesan Baru</option>
-                <option value="time-oldest">Waktu Pesan Lama</option>
+                <option value="branch-asc">Urutkan Cabang</option>
+                <option value="time-oldest">Waktu Pesanan Lama</option>
             </select>
         </div>
         <div style="display: flex; gap: 8px; flex-wrap: wrap;">
@@ -318,7 +314,6 @@
                 <option value="">Pilih cabang</option>
             </select>
             <button onclick="openWhatsAppTemplate()" style="padding: 8px 16px; font-size: 0.9rem; background: linear-gradient(135deg, #16a34a, #15803d);">Buka WhatsApp</button>
-            <button onclick="copyVisibleResults()" style="padding: 8px 16px; font-size: 0.9rem; background: linear-gradient(135deg, #4facfe, #00f2fe);">Copy Hasil</button>
             <button onclick="resetFilters()" style="padding: 8px 16px; font-size: 0.9rem; background: #475569; color: #fff;">Reset</button>
             <button onclick="exportToExcel()" style="padding: 8px 16px; font-size: 0.9rem;">Export Hasil ke Excel</button>
         </div>
@@ -833,33 +828,24 @@
         });
 
         filtered.sort((a, b) => {
-            const orderComparison = a.noOrder.localeCompare(
-                b.noOrder,
+            const branchComparison = a.namaCabang.localeCompare(
+                b.namaCabang,
                 undefined,
-                { numeric: true, sensitivity: 'base' }
+                { sensitivity: 'base' }
             );
             switch (sortSelect) {
-                case 'order-desc':
-                    return -orderComparison;
-                case 'status-desc':
-                    return (a.status === 'SUDAH INFO' ? 0 : 1) -
-                        (b.status === 'SUDAH INFO' ? 0 : 1) || orderComparison;
-                case 'status-asc':
-                    return (a.status === 'BELUM INFO' ? 0 : 1) -
-                        (b.status === 'BELUM INFO' ? 0 : 1) || orderComparison;
-                case 'time-newest':
                 case 'time-oldest': {
                     const dateA = parseTikTokDate(a.waktuDibuat);
                     const dateB = parseTikTokDate(b.waktuDibuat);
-                    if (!dateA && !dateB) return orderComparison;
+                    if (!dateA && !dateB) return branchComparison;
                     if (!dateA) return 1;
                     if (!dateB) return -1;
                     const timeComparison = dateA.getTime() - dateB.getTime();
-                    return (sortSelect === 'time-newest' ? -timeComparison : timeComparison) || orderComparison;
+                    return timeComparison || branchComparison;
                 }
-                case 'order-asc':
+                case 'branch-asc':
                 default:
-                    return orderComparison;
+                    return branchComparison;
             }
         });
 
@@ -877,29 +863,8 @@
     function resetFilters() {
         document.getElementById('searchInput').value = '';
         document.getElementById('statusFilter').value = 'all';
-        document.getElementById('sortSelect').value = 'order-asc';
+        document.getElementById('sortSelect').value = 'branch-asc';
         applyFilters();
-    }
-
-    async function copyVisibleResults() {
-        const rows = getFilteredData();
-        if (!rows.length) {
-            alert('Tidak ada data untuk disalin.');
-            return;
-        }
-
-        const tsv = [
-            ['NO ORDER', 'NAMA GUDANG / CABANG', 'WAKTU PESANAN DIBUAT', 'STATUS INFO'],
-            ...rows.map(item => [item.noOrder, item.namaCabang, item.waktuDibuat, item.status])
-        ].map(row => row.join('\t')).join('\n');
-
-        try {
-            await navigator.clipboard.writeText(tsv);
-            alert('Hasil terlihat berhasil disalin ke clipboard.');
-        } catch (error) {
-            console.error('Gagal menyalin hasil:', error);
-            alert('Clipboard tidak tersedia di browser ini.');
-        }
     }
 
     function updateWhatsAppSheetOptions() {

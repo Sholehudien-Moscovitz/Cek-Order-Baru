@@ -414,12 +414,8 @@
                     <option value="BELUM INFO">BELUM INFO</option>
                 </select>
                 <select id="sortSelect" onchange="applyFilters()" style="width: 180px; margin-bottom: 0; background:#0f172a; color:white; border:1px solid var(--border); border-radius:6px; padding:8px;">
-                    <option value="order-asc">No Order A-Z</option>
-                    <option value="order-desc">No Order Z-A</option>
-                    <option value="status-desc">Status: Sudah Info dahulu</option>
-                    <option value="status-asc">Status: Belum Info dahulu</option>
-                    <option value="time-newest">Waktu Pesan Baru</option>
-                    <option value="time-oldest">Waktu Pesan Lama</option>
+                    <option value="branch-asc">Urutkan Cabang</option>
+                    <option value="time-oldest">Waktu Pesanan Lama</option>
                 </select>
             </div>
             <div style="display: flex; gap: 10px; flex-wrap: wrap;">
@@ -427,7 +423,6 @@
                     <option value="">Pilih gudang</option>
                 </select>
                 <button onclick="openWhatsAppTemplate()" style="padding: 10px 18px; font-size: 0.9rem; background: linear-gradient(135deg, #16a34a, #15803d); box-shadow: 0 4px 10px rgba(21, 128, 61, 0.2);">Buka WhatsApp</button>
-                <button id="copyBtn" onclick="copyVisibleResults()" style="padding: 10px 18px; font-size: 0.9rem; background: linear-gradient(135deg, #0ea5e9, #2563eb); box-shadow: 0 4px 10px rgba(37, 99, 235, 0.2);">Copy Hasil</button>
                 <button id="resetBtn" onclick="resetFilters()" style="padding: 10px 18px; font-size: 0.9rem; background: linear-gradient(135deg, #64748b, #475569); box-shadow: 0 4px 10px rgba(100, 116, 139, 0.2);">Reset</button>
                 <button onclick="exportToExcel()" style="padding: 10px 20px; font-size: 0.9rem;">Export Excel</button>
             </div>
@@ -854,19 +849,12 @@
 
         filtered.sort((a, b) => {
             switch (sortSelect) {
-                case 'order-desc':
-                    return b.noOrder.localeCompare(a.noOrder, undefined, { numeric: true, sensitivity: 'base' });
-                case 'status-desc':
-                    return (a.status === 'SUDAH INFO' ? 1 : 0) - (b.status === 'SUDAH INFO' ? 1 : 0) || a.noOrder.localeCompare(b.noOrder);
-                case 'status-asc':
-                    return (a.status === 'BELUM INFO' ? 1 : 0) - (b.status === 'BELUM INFO' ? 1 : 0) || a.noOrder.localeCompare(b.noOrder);
-                case 'time-newest':
-                    return new Date(b.waktuDibuat || 0) - new Date(a.waktuDibuat || 0);
                 case 'time-oldest':
                     return new Date(a.waktuDibuat || 0) - new Date(b.waktuDibuat || 0);
-                case 'order-asc':
+                case 'branch-asc':
                 default:
-                    return a.noOrder.localeCompare(b.noOrder, undefined, { numeric: true, sensitivity: 'base' });
+                    return a.namaGudang.localeCompare(b.namaGudang, undefined, { sensitivity: 'base' }) ||
+                        a.noOrder.localeCompare(b.noOrder, undefined, { numeric: true, sensitivity: 'base' });
             }
         });
 
@@ -912,7 +900,7 @@
     function resetFilters() {
         document.getElementById('searchInput').value = '';
         document.getElementById('statusFilter').value = 'all';
-        document.getElementById('sortSelect').value = 'order-asc';
+        document.getElementById('sortSelect').value = 'branch-asc';
         renderTable(getFilteredData());
     }
 
@@ -1055,23 +1043,6 @@
 
         renderTable(getFilteredData());
         document.getElementById('resultPanel').classList.remove('hidden');
-    }
-
-    function copyVisibleResults() {
-        const rows = getFilteredData();
-        if (!rows.length) {
-            alert('Tidak ada data untuk disalin.');
-            return;
-        }
-
-        const csv = [
-            ['NO ORDER', 'NAMA GUDANG', 'ASAL FILE SHOPEE', 'WAKTU PESANAN DIBUAT', 'HARUS DIKIRIM SEBELUM', 'STATUS INFO'],
-            ...rows.map(item => [item.noOrder, item.namaGudang, item.asalToko, item.waktuDibuat, item.waktuKirim, item.status])
-        ].map(row => row.join('\t')).join('\n');
-
-        navigator.clipboard.writeText(csv)
-            .then(() => alert('Hasil terlihat berhasil disalin ke clipboard.'))
-            .catch(() => alert('Clipboard tidak tersedia di browser ini.'));
     }
 
     function updateWhatsAppSheetOptions() {
