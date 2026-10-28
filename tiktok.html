@@ -944,7 +944,7 @@
         const templateGroups = [...groupTikTokTemplateOrders(rows).values()];
         const isDcStreamverse = String(rows[0]?.namaCabang || '').trim().toUpperCase() === 'DC STREAMVERSE';
         const greeting = isDcStreamverse
-            ? 'Berikut info order shopee baru :'
+            ? 'Berikut info order tiktok baru :'
             : 'Info pak/bu, order tiktok baru berikut :';
         return templateGroups.map((group, index) => [
             ...(index === 0 ? [greeting] : []),
