@@ -53,18 +53,33 @@
             display: flex;
             justify-content: center;
             align-items: center;
-            gap: 20px;
+            gap: clamp(12px, 4vw, 24px);
             margin-bottom: 20px;
         }
         .logo-container i {
-            font-size: 2rem;
+            font-size: clamp(2.25rem, 9vw, 2.8rem);
         }
         /* Mengatur ukuran gambar logo Yogya Online */
         .logo-container img {
-            width: 100px;
-            height: 100px;
+            width: clamp(88px, 30vw, 120px);
+            height: clamp(88px, 30vw, 120px);
             object-fit: contain;
             border-radius: 8px;
+        }
+        .logo-container i,
+        .logo-container img {
+            transition: transform 0.25s ease, filter 0.25s ease;
+        }
+        .logo-container i:hover,
+        .logo-container img:hover {
+            transform: translateY(-6px) scale(1.1);
+            filter: drop-shadow(0 8px 8px rgba(0, 0, 0, 0.4));
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .logo-container i,
+            .logo-container img {
+                transition: none;
+            }
         }
         .fa-shopee {
             color: #ee4d2d; /* Warna Oranye Shopee */
